@@ -2,6 +2,10 @@
 
 A Claude Code mod that puts a little parade above your prompt while Claude works. The boss walks back and forth, and every subagent Claude starts joins in as a creature of its own.
 
+![The boss and four subagent creatures walking above the Claude Code prompt while Claude works](docs/screenshot.png)
+
+The whole lineup, as text:
+
 ```
               ▝▖▗▘        ▗▄██▄▖        ▀▙▟▀         ▙▟▙▟         ▝▀▀▘
  █▜▛█         █▜▛█         █▜▛█         █▜▛█         █▜▛█         █▜▛█
