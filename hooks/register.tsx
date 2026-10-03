@@ -21,6 +21,11 @@ const ACTIVE = new Set(['pending', 'running', 'waiting'])
 // wrote, which a pane that died leaves standing; after this long its
 // creature is retired until the teammate goes idle or ends.
 export const PANE_STALE_MS = 10 * 60_000
+// Checks this far apart may have missed a retired teammate going idle, so
+// it gets a fresh start.
+const UNSEEN_MS = TICK_MS * LIST_EVERY * 4
+// Times a failed listing is retried while nothing walks to keep retrying it.
+export const IDLE_RETRIES = 3
 // Where `/posse` remembers being switched off, across sessions.
 const STORE_KEY = 'isOn'
 const OPTIONS =
@@ -42,8 +47,14 @@ type Walk = {
   isMainTurn: boolean
   /** Whether `/posse` has it switched on. */
   isOn: boolean
-  /** Listings started so far: only the latest one is applied. */
+  /** Listings started so far. */
   listings: number
+  /** The newest listing applied: an older one that answers later is ignored. */
+  applied: number
+  /** Failed listings in a row. */
+  failures: number
+  /** When the last listing that read the time was applied. */
+  listedAt: number
   /** Pane teammates whose creatures were retired, until they stop running. */
   stale: Set<string>
   /** Whether this load has caught up with a turn and agents already under way. */
@@ -110,15 +121,30 @@ function wake($: EngineInterface, walk: Walk) {
   walk.timer = $.clock.every(ms, () => tick($, walk))
 }
 
-/** Lists the agents again, and keeps the timer going to retry if that fails. */
+/**
+ * Lists the agents again. A failure is retried on the timer while anything
+ * walks, and otherwise a few times on its own before giving up.
+ */
 function relist($: EngineInterface, walk: Walk) {
-  void list($, walk).catch((error: unknown) => {
-    $.ui.log(
-      `prompt-posse: couldn't list the session's agents (${reasonOf(error)}); trying again in half a second`,
-      { to: 'debug' },
-    )
-    wake($, walk)
-  })
+  void list($, walk).then(
+    () => {
+      walk.failures = 0
+    },
+    (error: unknown) => {
+      walk.failures += 1
+      if (walk.failures === 1) {
+        $.ui.log(
+          `prompt-posse: couldn't list the session's agents (${reasonOf(error)}); trying again in half a second`,
+          { to: 'debug' },
+        )
+      }
+      if (walk.isMainTurn || walk.subagents.size > 0) {
+        wake($, walk)
+      } else if (walk.failures <= IDLE_RETRIES) {
+        $.clock.after(TICK_MS * LIST_EVERY, () => relist($, walk))
+      }
+    },
+  )
 }
 
 /** Brings the creatures in line with the session's active agents. */
@@ -129,15 +155,22 @@ async function list($: EngineInterface, walk: Walk) {
     agents.filter(agent => ACTIVE.has(agent.status)).map(agent => [agent.id, agent]),
   )
   const isPane = (agent: { id: string; teammateId?: string }) => agent.id === agent.teammateId
-  const needsTime = [...active.values()].some(
-    agent => !walk.subagents.has(agent.id) || isPane(agent),
-  )
+  const needsTime =
+    walk.stale.size > 0 ||
+    [...active.values()].some(agent => !walk.subagents.has(agent.id) || isPane(agent))
   const now = needsTime ? await $.clock.now() : 0
-  // A listing that started before another has nothing newer to say.
-  if (listing !== walk.listings) {
+  // A listing older than one already applied has nothing newer to say.
+  if (listing <= walk.applied) {
     return
   }
+  walk.applied = listing
 
+  if (needsTime) {
+    if (now - walk.listedAt > UNSEEN_MS) {
+      walk.stale.clear()
+    }
+    walk.listedAt = now
+  }
   for (const id of walk.stale) {
     if (!active.has(id)) {
       walk.stale.delete(id)
@@ -215,6 +248,9 @@ export const register: Register = on => {
     isMainTurn: false,
     isOn: true,
     listings: 0,
+    applied: 0,
+    failures: 0,
+    listedAt: 0,
     stale: new Set(),
     isSynced: false,
     band: null,

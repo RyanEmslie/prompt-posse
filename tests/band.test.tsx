@@ -5,7 +5,7 @@ import { SPRITE_ROWS } from '../hooks/sprite'
 import { TICK_MS } from '../hooks/walker'
 import type { AgentInfo } from 'claude-code'
 
-import { LIST_EVERY, PANE_STALE_MS } from '../hooks/register'
+import { IDLE_RETRIES, LIST_EVERY, PANE_STALE_MS } from '../hooks/register'
 import { SPAWN, TURN_END, agent, band, decodeCells, engine } from './kit'
 
 describe('terminal band', () => {
@@ -238,4 +238,65 @@ describe('terminal band', () => {
       )
     },
   )
+
+  test('listings slower than the check interval still get applied', async ($, on) => {
+    const clock = mock.clock(on)
+    // Every listing takes longer than the gap before the next one starts.
+    engine(on, async () => {
+      await clock.sleep(TICK_MS * LIST_EVERY + 100)
+      return [agent('a1', 'Explore')]
+    })
+    const ui = await $.ui.mount(band(true, 'terminal'))
+
+    await clock.advance(TICK_MS * LIST_EVERY * 6)
+    await ui.redraw(band(true, 'terminal').props)
+    const raster = await ui.find({ type: 'Raster' })
+    const colors = new Set(decodeCells(String(raster?.props.cells)).map(cell => cell.fg))
+    expect(colors.has(lookFor('Explore').color)).toBe(true)
+  })
+
+  test('listing that keeps failing while idle gives up after a few tries', async ($, on) => {
+    const clock = mock.clock(on)
+    let calls = 0
+    let isDown = false
+    engine(on, () => {
+      calls += 1
+      if (isDown) throw new Error('agents unavailable')
+      return []
+    })
+    on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a1' }))
+    await $.ui.mount(band(false, 'terminal'))
+    await clock.settle()
+    const before = calls
+
+    isDown = true
+    await $.agent.spawn(SPAWN)
+    await clock.advance(5_000)
+    const after = calls
+    expect(after - before).toBe(1 + IDLE_RETRIES)
+    await clock.advance(20_000)
+    expect(calls).toBe(after)
+  })
+
+  test('a retired pane teammate comes back once it has been out of sight', async ($, on) => {
+    const clock = mock.clock(on)
+    const pane = { ...agent('scout@crew', 'teammate'), teammateId: 'scout@crew' }
+    engine(on, [pane])
+    const ui = await $.ui.mount(band(false, 'desktop'))
+    await clock.settle()
+    await ui.redraw(band(false, 'desktop').props)
+
+    await clock.advance(PANE_STALE_MS + TICK_MS * LIST_EVERY * 2)
+    await ui.redraw(band(false, 'desktop').props)
+    expect(await ui.find({ type: 'Svg' })).toBeUndefined()
+
+    // Nothing walks, so nothing checks; it may have gone idle and come back.
+    await clock.advance(60_000)
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await clock.advance(TICK_MS * LIST_EVERY)
+    await ui.redraw(band(true, 'desktop').props)
+    expect((await ui.find({ type: 'Svg' }))?.props.alt).toBe(
+      'The boss and 1 agent walking above the prompt: teammate',
+    )
+  })
 })

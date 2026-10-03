@@ -101,7 +101,7 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 - Colors are fixed RGB values. They don't follow your terminal's color scheme or the desktop app's theme.
 - Claude Code keeps one empty row between the strip and the prompt box, so the creatures can't stand directly on the prompt's border. The ground line under them stands in for it.
 - When more creatures are out than fit side by side, they walk through each other instead of bumping. At 80 columns that's the boss plus 10; at 120, the boss plus 16.
-- A teammate running in its own terminal pane keeps reporting "running" if that pane dies, so its creature is retired after 10 minutes of running. A live teammate on one very long turn loses its creature too, until it next goes idle.
+- A teammate running in its own terminal pane keeps reporting "running" if that pane dies, so its creature is retired after 10 minutes of running. A live teammate on one very long turn loses its creature too, until it next goes idle. If nothing was walking for a while, a retired teammate that's still listed as running comes back for another 10 minutes, since the mod can't tell whether it went idle in between.
 
 ## License
 

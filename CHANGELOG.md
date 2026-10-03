@@ -4,6 +4,11 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 
 ## [Unreleased]
 
+### Fixed
+- Creatures now appear even when Claude Code is slow to report which agents are running. Before 0.4.1's fix, a check slower than half a second was always overtaken by the next one, and none were applied.
+- When checking for agents keeps failing while nothing is walking, the mod now gives up after three tries instead of retrying every half second forever. Only the first failure in a row goes to the debug log.
+- A teammate whose creature was retired after 10 minutes comes back if it's still running once checking resumes after a pause, since it may have gone idle in between unseen.
+
 ### Changed
 - In the desktop app, the mod's timer now wakes only twice a second, to check for agents. The animation runs on its own, so it no longer ticks 20 times a second there.
 
