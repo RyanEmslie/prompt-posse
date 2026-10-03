@@ -1,0 +1,12 @@
+{
+  "name": "prompt-posse",
+  "version": "0.1.0",
+  "description": "Clawd and a posse of subagent creatures walk back and forth above the prompt while Claude Code works",
+  "author": {
+    "name": "Ryan Emslie",
+    "url": "https://github.com/RyanEmslie"
+  },
+  "homepage": "https://github.com/RyanEmslie/prompt-posse",
+  "repository": "https://github.com/RyanEmslie/prompt-posse",
+  "license": "MIT"
+}
