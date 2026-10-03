@@ -63,7 +63,8 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 - Each running subagent joins as its own creature, dressed by type: blue with antennae (Explore), green with a top hat (Plan), purple with a propeller cap (general-purpose), gold with a crown (`claude`) and peach with a halo (fork). Any other type gets ears, horns, a mohawk or a sprout, and always the same look.
 - Each creature walks at its own pace and turns around when it meets another. Background subagents keep walking after the main turn ends. Terminal only, and needs Claude Code 2.1.289 or newer.
 
-[Unreleased]: https://github.com/RyanEmslie/prompt-posse/compare/05aa191...HEAD
+[Unreleased]: https://github.com/RyanEmslie/prompt-posse/compare/a72f9bd...HEAD
+[0.4.3]: https://github.com/RyanEmslie/prompt-posse/commit/a72f9bd
 [0.4.2]: https://github.com/RyanEmslie/prompt-posse/commit/05aa191
 [0.4.1]: https://github.com/RyanEmslie/prompt-posse/commit/20ed772
 [0.4.0]: https://github.com/RyanEmslie/prompt-posse/commit/f040d50
