@@ -1,21 +1,36 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { ANTENNAE, BOSS, lookFor } from '../hooks/looks'
-import { glyphRows, rasterCells, toBase64 } from '../hooks/sprite'
+import { BOSS_WIDTH, SPRITE_WIDTH, glyphRows, rasterCells, spriteWidth, toBase64 } from '../hooks/sprite'
 import { decodeCells } from './kit'
 
 const STANDING = { facing: 0, step: 0, isBlinking: false } as const
 const TERMINAL_DEFAULT = 0x01000000
+const SMALL = { color: BOSS.color, headwear: null }
 
 describe('sprite', () => {
-  test('the boss stands bareheaded on four legs', () => {
-    const rows = glyphRows(7, [{ x: 1, pose: STANDING, look: BOSS }])
+  test('the boss stands as the startup logo, the biggest of the posse', () => {
+    const rows = glyphRows(9, [{ x: 1, pose: STANDING, look: BOSS }])
+    expect(rows).toEqual([' ▐▛███▜▌ ', '▝▜█████▛▘', '  ▌▌ ▐▐  '])
+    expect(spriteWidth(BOSS)).toBe(BOSS_WIDTH)
+    expect(BOSS_WIDTH).toBeGreaterThan(SPRITE_WIDTH)
+  })
+
+  test('the boss lifts alternate legs as he walks', () => {
+    const at = (step: 1 | 2) =>
+      glyphRows(9, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: BOSS }])
+    expect(at(1)[2]).toBe('  ▌▘ ▐▝  ')
+    expect(at(2)[2]).toBe('  ▘▌ ▝▐  ')
+  })
+
+  test('a subagent creature stands on four legs below its headwear row', () => {
+    const rows = glyphRows(7, [{ x: 1, pose: STANDING, look: SMALL }])
     expect(rows).toEqual(['       ', ' ▐▛█▜▌ ', '▝▜▜▀▛▛▘'])
   })
 
-  test('lifts alternate legs as it walks', () => {
+  test('a subagent creature lifts alternate legs as it walks', () => {
     const at = (step: 1 | 2) =>
-      glyphRows(7, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: BOSS }])
+      glyphRows(7, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: SMALL }])
     expect(at(1)[2]).toBe('▝▜▀▀▛▀▘')
     expect(at(2)[2]).toBe('▝▀▜▀▀▛▘')
   })
@@ -27,21 +42,21 @@ describe('sprite', () => {
   })
 
   test('a creature half off either edge draws only the part that shows', () => {
-    const whole = glyphRows(6, [{ x: 0, pose: STANDING, look: BOSS }])
-    const offLeft = glyphRows(3, [{ x: -6, pose: STANDING, look: BOSS }])
-    const offRight = glyphRows(3, [{ x: 0, pose: STANDING, look: BOSS }])
-    expect(offLeft).toEqual(whole.map(row => row.slice(3)))
-    expect(offRight).toEqual(whole.map(row => row.slice(0, 3)))
+    const whole = glyphRows(8, [{ x: 0, pose: STANDING, look: BOSS }])
+    const offLeft = glyphRows(4, [{ x: -8, pose: STANDING, look: BOSS }])
+    const offRight = glyphRows(4, [{ x: 0, pose: STANDING, look: BOSS }])
+    expect(offLeft).toEqual(whole.map(row => row.slice(4)))
+    expect(offRight).toEqual(whole.map(row => row.slice(0, 4)))
   })
 })
 
 describe('raster cells', () => {
   test('pack each glyph in orange on the terminal background', () => {
     const figures = [{ x: 1, pose: STANDING, look: BOSS }]
-    const cells = decodeCells(rasterCells(7, figures))
-    expect(cells).toHaveLength(7 * 3)
+    const cells = decodeCells(rasterCells(9, figures))
+    expect(cells).toHaveLength(9 * 3)
 
-    const rows = glyphRows(7, figures)
+    const rows = glyphRows(9, figures)
     expect(cells.map(cell => cell.glyph).join('')).toBe(rows.join(''))
     for (const cell of cells) {
       expect(cell.bg).toBe(TERMINAL_DEFAULT)
@@ -49,18 +64,28 @@ describe('raster cells', () => {
     }
   })
 
+  test('headwear is drawn in its own color, apart from the body', () => {
+    const explore = lookFor('Explore')
+    const cells = decodeCells(rasterCells(7, [{ x: 1, pose: STANDING, look: explore }]))
+    const drawn = (row: number) =>
+      cells.slice(row * 7, row * 7 + 7).filter(cell => cell.glyph !== ' ')
+    expect(drawn(0).length).toBeGreaterThan(0)
+    for (const cell of drawn(0)) expect(cell.fg).toBe(explore.hatColor)
+    for (const cell of [...drawn(1), ...drawn(2)]) expect(cell.fg).toBe(explore.color)
+  })
+
   test('where two creatures overlap, the later one is drawn on top', () => {
     const explore = lookFor('Explore')
     const cells = decodeCells(
       rasterCells(6, [
-        { x: 0, pose: STANDING, look: BOSS },
+        { x: 0, pose: STANDING, look: SMALL },
         { x: 0, pose: STANDING, look: explore },
       ]),
     )
     const drawn = cells.filter(cell => cell.glyph !== ' ')
     expect(drawn.length).toBeGreaterThan(0)
     for (const cell of drawn) {
-      expect(cell.fg).toBe(explore.color)
+      expect([explore.color, explore.hatColor]).toContain(cell.fg)
     }
   })
 

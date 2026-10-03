@@ -7,30 +7,30 @@ A Claude Code mod that puts a little parade above your prompt while Claude works
 The whole lineup, as text:
 
 ```
-              ▝▖▗▘        ▗▄██▄▖        ▀▙▟▀         ▙▟▙▟         ▝▀▀▘
- █▜▛█         █▜▛█         █▜▛█         █▜▛█         █▜▛█         █▜▛█
-▀▛▛▜▜▀       ▀▛▛▜▜▀       ▀▛▛▜▜▀       ▀▛▛▜▜▀       ▀▛▛▜▜▀       ▀▛▛▜▜▀
-▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
+ ▐▛███▜▌      ▝▖▗▘        ▗▄██▄▖        ▀▙▟▀         ▙▟▙▟         ▝▀▀▘
+▝▜█████▛▘     █▜▛█         █▜▛█         █▜▛█         █▜▛█         █▜▛█
+  ▌▌ ▐▐      ▀▛▛▜▜▀       ▀▛▛▜▜▀       ▀▛▛▜▜▀       ▀▛▛▜▜▀       ▀▛▛▜▜▀
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 ```
 
-From left to right: the boss, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents.
+From left to right: the boss, the biggest of them, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents. The boss is the shape of the logo Claude Code shows at startup.
 
 ## What it does
 
 - The boss appears when a turn starts and walks the full width of the prompt. At each edge it stops, looks at you, and turns around. It blinks now and then. It leaves once the turn has ended and no subagent is still walking.
-- Each running subagent gets its own creature. The creature's headwear and color depend on the subagent's type:
+- Each running subagent gets its own, smaller creature. Its headwear, body color and headwear color depend on the subagent's type:
 
-  | Subagent type | Headwear | Color |
-  | --- | --- | --- |
-  | main turn (the boss) | none | orange |
-  | Explore | antennae | blue |
-  | Plan | top hat | green |
-  | general-purpose | propeller cap | purple |
-  | `claude` | crown | gold |
-  | fork | halo | peach |
-  | any other type | ears, horns, a mohawk or a sprout | picked from the type's name |
+  | Subagent type | Headwear | Body | Headwear color |
+  | --- | --- | --- | --- |
+  | main turn (the boss) | none; bigger than everyone else | orange | — |
+  | Explore | antennae | blue | white |
+  | Plan | top hat | green | red |
+  | general-purpose | propeller cap | purple | cyan |
+  | `claude` | crown | pink | gold |
+  | fork | halo | peach | pale yellow |
+  | any other type | ears, horns, a mohawk or a sprout | picked from the type's name | picked from the type's name |
 
-  A custom type always gets the same look, and never headwear a built-in type wears.
+  A custom type always gets the same look, never headwear a built-in type wears, and never a hat the color of its body.
 - Each creature walks at its own pace. In the terminal, when two meet, they stop briefly and turn around. In the desktop app they walk past each other.
 - Subagents running in the background keep walking after the main turn ends, with the boss leading them. The strip disappears when the last one finishes.
 

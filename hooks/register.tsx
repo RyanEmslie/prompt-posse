@@ -1,7 +1,7 @@
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { BOSS, hash, lookFor } from './looks'
-import { SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
+import { BOSS_WIDTH, SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
 import { posseSvg } from './svg'
 import { TICK_MS, createWalker, freeSpot, lastX, pose, step } from './walker'
@@ -93,11 +93,11 @@ async function list($: EngineInterface, walk: Walk) {
       continue
     }
     const others = shown(walk, walk.band?.hasBoss ?? walk.isMainTurn).map(c => c.walker)
-    const x = freeSpot(columns, others)
+    const x = freeSpot(columns, SPRITE_WIDTH, others)
     const heading = x < lastX(columns) / 2 ? 1 : -1
     const speed = 0.7 + (hash(agent.id) % 6) / 10
     walk.subagents.set(agent.id, {
-      walker: createWalker(x, heading, speed),
+      walker: createWalker(x, heading, speed, SPRITE_WIDTH),
       look: lookFor(agent.type),
       since: now,
     })
@@ -135,7 +135,7 @@ function tick($: EngineInterface, walk: Walk) {
 
 export const register: Register = on => {
   const walk: Walk = {
-    boss: { walker: createWalker(), look: BOSS, since: 0 },
+    boss: { walker: createWalker(0, 1, 1, BOSS_WIDTH), look: BOSS, since: 0 },
     subagents: new Map(),
     isMainTurn: false,
     band: null,
@@ -189,7 +189,7 @@ export const register: Register = on => {
       !hasBoss ||
       e.props.hasSurvey ||
       e.props.maxRows < BAND_ROWS ||
-      columns < SPRITE_WIDTH / 2
+      columns < BOSS_WIDTH / 2
     ) {
       walk.band = null
       return next(e)
@@ -197,7 +197,7 @@ export const register: Register = on => {
 
     const creatures = shown(walk, hasBoss)
     for (const { walker } of creatures) {
-      walker.x = Math.min(walker.x, lastX(columns))
+      walker.x = Math.min(walker.x, lastX(columns, walker.width))
     }
     walk.band = { requestId: e.requestId, columns, hasBoss, surface: e.surface }
 

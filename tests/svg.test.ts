@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { BOSS, lookFor } from '../hooks/looks'
+import { BOSS_WIDTH } from '../hooks/sprite'
 import { posseSvg } from '../hooks/svg'
 import { BLINK_EVERY, PAUSE_TICKS, TICK_MS, lastX } from '../hooks/walker'
 import { animations, attributesOf } from './kit'
 
 const COLUMNS = 80
-const END = lastX(COLUMNS)
+const END = lastX(COLUMNS, BOSS_WIDTH)
 const TRAVEL_MS = END * TICK_MS
 const PAUSE_MS = PAUSE_TICKS * TICK_MS
 const PERIOD_MS = 2 * (TRAVEL_MS + PAUSE_MS)
@@ -62,8 +63,17 @@ describe('desktop svg', () => {
 
   test('draws each run of pixels as one rect, two units tall', () => {
     const svg = posseSvg(COLUMNS, [stride(0, 1)])
-    expect(svg).toContain('<rect x="0" y="8" width="12" height="2"/>')
-    expect(svg).toContain('<rect x="2" y="4" width="8" height="2"/>')
+    expect(svg).toContain('<rect x="0" y="4" width="16" height="2"/>')
+    expect(svg).toContain('<rect x="2" y="0" width="12" height="2"/>')
+  })
+
+  test('draws headwear in its own color, apart from the body', () => {
+    const explore = lookFor('Explore')
+    const svg = posseSvg(COLUMNS, [{ ...stride(0, 1), look: explore }])
+    const hex = (color = 0) => `#${color.toString(16).padStart(6, '0')}`
+    expect(svg).toContain(`<g fill="${hex(explore.color)}">`)
+    expect(svg).toContain(`<g fill="${hex(explore.hatColor)}">`)
+    expect(animations(svg)).toBe(1)
   })
 
   test('the ground spans the strip, two units a column', () => {

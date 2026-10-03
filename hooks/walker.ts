@@ -8,9 +8,9 @@ export const PAUSE_TICKS = Math.round(800 / TICK_MS)
 export const BUMP_TICKS = Math.round(200 / TICK_MS)
 export const BLINK_EVERY = Math.round(3200 / TICK_MS)
 export const BLINK_TICKS = Math.round(160 / TICK_MS)
-// The closest two creatures come: a sprite and a column apart, so no cell
-// holds both.
-export const SPACING = SPRITE_WIDTH + 2
+// The fewest free pixels between two creatures side by side: a column, so
+// no cell holds both.
+export const MIN_GAP = 2
 
 export type Walker = {
   /** The sprite's left edge, in pixels: two per terminal column. */
@@ -25,17 +25,24 @@ export type Walker = {
   speed: number
   /** The part of a pixel walked toward the next. */
   progress: number
+  /** The sprite's width, in pixels. */
+  width: number
 }
 
 export const createWalker = (
   x = 0,
   heading: 1 | -1 = 1,
   speed = 1,
-): Walker => ({ x, heading, pause: 0, travelled: 0, ticks: 0, speed, progress: 0 })
+  width = SPRITE_WIDTH,
+): Walker => ({ x, heading, pause: 0, travelled: 0, ticks: 0, speed, progress: 0, width })
 
-/** The furthest left edge that keeps the whole sprite in `columns`. */
-export const lastX = (columns: number) =>
-  Math.max(0, columns * 2 - SPRITE_WIDTH)
+/** The furthest left edge that keeps a sprite `width` wide in `columns`. */
+export const lastX = (columns: number, width = SPRITE_WIDTH) =>
+  Math.max(0, columns * 2 - width)
+
+/** Free pixels between a sprite at `x`, `width` wide, and another; below 0 they overlap. */
+const gapTo = (x: number, width: number, other: Walker) =>
+  x <= other.x ? other.x - (x + width) : x - (other.x + other.width)
 
 /** One tick: `speed` pixels along, stopping to turn at an edge or a bump. */
 export function step(
@@ -61,14 +68,14 @@ export function step(
 }
 
 function advance(walker: Walker, columns: number, others: readonly Walker[]) {
-  const end = lastX(columns)
+  const end = lastX(columns, walker.width)
   const x = Math.min(Math.max(walker.x + walker.heading, 0), end)
 
   // Only a step that closes in on someone too near is a bump, so two
   // creatures that start out overlapping can still walk apart.
   const isBump = others.some(other => {
-    const gap = Math.abs(x - other.x)
-    return gap < SPACING && gap < Math.abs(walker.x - other.x)
+    const gap = gapTo(x, walker.width, other)
+    return gap < MIN_GAP && gap < gapTo(walker.x, walker.width, other)
   })
   if (isBump) {
     walker.pause = BUMP_TICKS
@@ -86,12 +93,16 @@ function advance(walker: Walker, columns: number, others: readonly Walker[]) {
   }
 }
 
-/** Where a newcomer starts: the spot furthest from everyone already walking. */
-export function freeSpot(columns: number, others: readonly Walker[]): number {
+/** Where a newcomer `width` wide starts: as far from everyone already walking as it can. */
+export function freeSpot(
+  columns: number,
+  width: number,
+  others: readonly Walker[],
+): number {
   let best = 0
-  let bestGap = -1
-  for (let x = 0; x <= lastX(columns); x += 2) {
-    const gap = Math.min(...others.map(other => Math.abs(x - other.x)))
+  let bestGap = -Infinity
+  for (let x = 0; x <= lastX(columns, width); x += 2) {
+    const gap = Math.min(...others.map(other => gapTo(x, width, other)))
     if (gap > bestGap) {
       best = x
       bestGap = gap

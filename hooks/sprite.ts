@@ -1,8 +1,10 @@
-// The boss and the subagents' creatures, 12 by 6 pixels each, drawn two by two
-// in quadrant block characters: 6 terminal columns by 3 rows (7 at an odd
-// pixel offset). The top row holds headwear; the boss wears none.
+// The posse in pixels, drawn two by two in quadrant block characters, three
+// terminal rows tall. A subagent's creature is 12 pixels wide (6 columns, 7
+// at an odd pixel offset) with headwear on its top row; the boss is 16 wide
+// and fills all three rows, the biggest of them.
 
 export const SPRITE_WIDTH = 12
+export const BOSS_WIDTH = 16
 export const SPRITE_ROWS = 3
 
 export type Pose = {
@@ -15,10 +17,18 @@ export type Pose = {
 /** Two rows of pixels worn above the head, `#` filled. */
 export type Headwear = readonly [string, string]
 
-export type Look = { color: number; headwear: Headwear | null }
+export type Look = {
+  color: number
+  headwear: Headwear | null
+  /** The headwear's own color, so it stands out from the body. */
+  hatColor?: number
+  isBoss?: boolean
+}
 
 /** One creature where it stands: its left edge in pixels, two per column. */
 export type Figure = { x: number; pose: Pose; look: Look }
+
+export const spriteWidth = (look: Look) => (look.isBoss ? BOSS_WIDTH : SPRITE_WIDTH)
 
 const BARE: Headwear = ['............', '............']
 const BODY = '..########..'
@@ -34,6 +44,21 @@ const LEGS = {
   2: '....#....#..',
 } as const
 
+// The boss, in the shape of the logo Claude Code prints at startup.
+const BOSS_BODY = '..############..'
+const BOSS_ARMS = '################'
+const BOSS_EYES = {
+  [-1]: '..#.######.###..',
+  0: '..##.######.##..',
+  1: '..###.######.#..',
+} as const
+const BOSS_LEGS = '...#.#....#.#...'
+const BOSS_FEET = {
+  0: BOSS_LEGS,
+  1: '...#......#.....',
+  2: '.....#......#...',
+} as const
+
 // Indexed by the filled quadrants: top-left 1, top-right 2, bottom-left 4,
 // bottom-right 8.
 const QUADRANTS = [...' ▘▝▀▖▌▞▛▗▚▐▜▄▙▟█']
@@ -44,11 +69,23 @@ const TERMINAL_DEFAULT = 0x01000000
 
 type Cell = { glyph: string; color: number }
 
-export function spritePixels(pose: Pose, headwear: Headwear | null): readonly string[] {
-  const eyes = pose.isBlinking ? BODY : EYES[pose.facing]
-  const [crown, brim] = headwear ?? BARE
+/** A creature's rows of pixels: `#` its body, `+` its headwear, `.` neither. */
+export function spritePixels(pose: Pose, look: Look): readonly string[] {
+  if (look.isBoss) {
+    const eyes = pose.isBlinking ? BOSS_BODY : BOSS_EYES[pose.facing]
+    return [BOSS_BODY, eyes, BOSS_ARMS, BOSS_BODY, BOSS_LEGS, BOSS_FEET[pose.step]]
+  }
 
-  return [crown, brim, BODY, eyes, ARMS, LEGS[pose.step]]
+  const eyes = pose.isBlinking ? BODY : EYES[pose.facing]
+  const [crown, brim] = (look.headwear ?? BARE).map(row => row.replaceAll('#', '+'))
+  return [crown ?? '', brim ?? '', BODY, eyes, ARMS, LEGS[pose.step]]
+}
+
+/** The color a sprite pixel paints in, or none. */
+export function pixelColor(pixel: string | undefined, look: Look): number | null {
+  if (pixel === '#') return look.color
+  if (pixel === '+') return look.hatColor ?? look.color
+  return null
 }
 
 function paint(columns: number, figures: readonly Figure[]): Cell[][] {
@@ -58,11 +95,12 @@ function paint(columns: number, figures: readonly Figure[]): Cell[][] {
     new Array<number>(width).fill(EMPTY),
   )
   for (const { x, pose, look } of figures) {
-    spritePixels(pose, look.headwear).forEach((row, py) => {
+    spritePixels(pose, look).forEach((row, py) => {
       for (let i = 0; i < row.length; i++) {
         const px = x + i
-        if (row[i] === '#' && px >= 0 && px < width) {
-          canvas[py]![px] = look.color
+        const color = pixelColor(row[i], look)
+        if (color !== null && px >= 0 && px < width) {
+          canvas[py]![px] = color
         }
       }
     })

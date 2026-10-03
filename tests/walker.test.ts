@@ -5,7 +5,7 @@ import {
   BLINK_TICKS,
   BUMP_TICKS,
   PAUSE_TICKS,
-  SPACING,
+  MIN_GAP,
   createWalker,
   freeSpot,
   lastX,
@@ -76,7 +76,7 @@ describe('walker', () => {
     for (let i = 0; i < 40; i++) {
       step(left, 60, [right])
       step(right, 60, [left])
-      expect(right.x - left.x).toBeGreaterThanOrEqual(SPACING)
+      expect(right.x - (left.x + left.width)).toBeGreaterThanOrEqual(MIN_GAP)
       bumped ||= left.pause === BUMP_TICKS
     }
     expect(bumped).toBe(true)
@@ -84,11 +84,33 @@ describe('walker', () => {
     expect(right.heading).toBe(1)
   })
 
+  test('a big creature keeps the same gap from a small one', () => {
+    const boss = createWalker(0, 1, 1, 16)
+    const small = createWalker(40, -1)
+    for (let i = 0; i < 40; i++) {
+      step(boss, 60, [small])
+      step(small, 60, [boss])
+      expect(small.x - (boss.x + boss.width)).toBeGreaterThanOrEqual(MIN_GAP)
+    }
+    expect(boss.heading).toBe(-1)
+    expect(small.heading).toBe(1)
+  })
+
+  test('a wider sprite stops sooner at the right edge', () => {
+    expect(lastX(20)).toBe(28)
+    expect(lastX(20, 16)).toBe(24)
+    const boss = createWalker(23, 1, 1, 16)
+    step(boss, 20)
+    expect(boss.x).toBe(24)
+    expect(pose(boss).facing).toBe(0)
+  })
+
   test('a newcomer starts as far from everyone as it can', () => {
-    expect(freeSpot(20, [])).toBe(0)
-    expect(freeSpot(20, [createWalker(0)])).toBe(lastX(20))
-    expect(freeSpot(20, [createWalker(0), createWalker(lastX(20))])).toBe(
+    expect(freeSpot(20, 12, [])).toBe(0)
+    expect(freeSpot(20, 12, [createWalker(0)])).toBe(lastX(20))
+    expect(freeSpot(20, 12, [createWalker(0), createWalker(lastX(20))])).toBe(
       lastX(20) / 2,
     )
+    expect(freeSpot(30, 12, [createWalker(0, 1, 1, 16)])).toBe(lastX(30))
   })
 })

@@ -11,17 +11,19 @@ export const HORNS: Headwear = ['.#........#.', '..#......#..']
 export const MOHAWK: Headwear = ['.....##.....', '....####....']
 export const SPROUT: Headwear = ['....##.##...', '......#.....']
 
-export const BOSS: Look = { color: 0xd77757, headwear: null }
+export const BOSS: Look = { color: 0xd77757, headwear: null, isBoss: true }
 
 const BY_TYPE = new Map<string, Look>([
-  ['Explore', { color: 0x61afef, headwear: ANTENNAE }],
-  ['Plan', { color: 0x98c379, headwear: TOP_HAT }],
-  ['general-purpose', { color: 0xc678dd, headwear: PROPELLER }],
-  ['claude', { color: 0xe5c07b, headwear: CROWN }],
-  ['fork', { color: 0xf4a582, headwear: HALO }],
+  ['Explore', { color: 0x61afef, headwear: ANTENNAE, hatColor: 0xf0f0f0 }],
+  ['Plan', { color: 0x98c379, headwear: TOP_HAT, hatColor: 0xe06c75 }],
+  ['general-purpose', { color: 0xc678dd, headwear: PROPELLER, hatColor: 0x56b6c2 }],
+  ['claude', { color: 0xe06c9f, headwear: CROWN, hatColor: 0xe5c07b }],
+  ['fork', { color: 0xf4a582, headwear: HALO, hatColor: 0xffe9a8 }],
 ])
 
-const COLORS = [0x56b6c2, 0xe06c9f, 0xb5cc5c, 0x7fc8f8, 0xf28b82, 0xb39ddb]
+// Bodies and hats for the other types, two lists that share no color.
+const COLORS = [0xb5cc5c, 0xb39ddb, 0xd19a66, 0xa0a8b7, 0x7ec699]
+const HAT_COLORS = [0xf0f0f0, 0xffd75f, 0x56b6c2, 0xe06c75]
 const HEADWEAR = [EARS, HORNS, MOHAWK, SPROUT]
 
 /** A subagent's look: its type's own, or one its type's name always picks. */
@@ -35,6 +37,7 @@ export function lookFor(type: string): Look {
   return {
     color: COLORS[h % COLORS.length] ?? BOSS.color,
     headwear: HEADWEAR[(h >>> 8) % HEADWEAR.length] ?? EARS,
+    hatColor: HAT_COLORS[(h >>> 16) % HAT_COLORS.length] ?? 0xf0f0f0,
   }
 }
 

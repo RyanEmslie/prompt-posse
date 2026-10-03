@@ -4,7 +4,7 @@
 // own, so nothing is sent per frame. Their phase comes from how long each
 // creature has been walking, so a redraw picks up where the last one was.
 
-import { SPRITE_ROWS, spritePixels } from './sprite'
+import { SPRITE_ROWS, spriteWidth, spritePixels } from './sprite'
 import type { Look, Pose } from './sprite'
 import { BLINK_EVERY, BLINK_TICKS, PAUSE_TICKS, TICK_MS, lastX } from './walker'
 
@@ -23,21 +23,23 @@ const PIXEL_HEIGHT = 2
 const GROUND_Y = SPRITE_ROWS * 2 * PIXEL_HEIGHT
 const HEIGHT = GROUND_Y + 0.5
 const STANDING: Pose = { facing: 0, step: 0, isBlinking: false }
+const FACINGS = [-1, 0, 1] as const
+const STEPS = [0, 1, 2] as const
 
 const seconds = (ms: number) => `${(ms / 1000).toFixed(3)}s`
 const keyTimes = (...times: number[]) => times.map(t => t.toFixed(4)).join(';')
 const hex = (color: number) => `#${color.toString(16).padStart(6, '0')}`
 
-/** A row of pixels as rects, each run of filled pixels one rect. */
-function rects(row: string, py: number): string {
+/** A row's `pixel`s as rects, each run of them one rect. */
+function rects(row: string, py: number, pixel: string): string {
   let out = ''
   for (let i = 0; i < row.length; ) {
-    if (row[i] !== '#') {
+    if (row[i] !== pixel) {
       i += 1
       continue
     }
     let j = i
-    while (row[j] === '#') {
+    while (row[j] === pixel) {
       j += 1
     }
     out += `<rect x="${i}" y="${py * PIXEL_HEIGHT}" width="${j - i}" height="${PIXEL_HEIGHT}"/>`
@@ -54,25 +56,52 @@ const layer = (content: string, opacity: 0 | 1, animation = '') =>
   `<g opacity="${opacity}">${animation}${content}</g>`
 
 function creature(columns: number, stride: Stride): string {
-  const rowOf = (pose: Partial<Pose>, py: number) =>
-    spritePixels({ ...STANDING, ...pose }, null)[py] ?? ''
-  const bare = spritePixels(STANDING, stride.look.headwear)
-  const fixed = [0, 1, 2, 4].map(py => rects(bare[py] ?? '', py)).join('')
-  const legs = (step: Pose['step']) => rects(rowOf({ step }, 5), 5)
+  const { look } = stride
+  const rowsFor = (pose: Partial<Pose>) => spritePixels({ ...STANDING, ...pose }, look)
+  const standing = rowsFor({})
+  const hat = hex(look.hatColor ?? look.color)
+
+  // Body pixels in the creature's fill, headwear in its own color.
+  const draw = (rows: readonly (readonly [string, number])[]) => {
+    const body = rows.map(([row, py]) => rects(row, py, '#')).join('')
+    const worn = rows.map(([row, py]) => rects(row, py, '+')).join('')
+    return worn === '' ? body : `${body}<g fill="${hat}">${worn}</g>`
+  }
+
+  // Which rows change with the eyes and with the legs; the rest stay put.
+  const eyeRows = standing.flatMap((row, py) =>
+    FACINGS.some(facing => rowsFor({ facing })[py] !== row) ||
+    rowsFor({ isBlinking: true })[py] !== row
+      ? [py]
+      : [],
+  )
+  const legRows = standing.flatMap((row, py) =>
+    STEPS.some(step => rowsFor({ step })[py] !== row) ? [py] : [],
+  )
+  const fixed = draw(
+    standing.flatMap((row, py) =>
+      eyeRows.includes(py) || legRows.includes(py) ? [] : [[row, py] as const],
+    ),
+  )
+  const legs = (step: Pose['step']) =>
+    draw(legRows.map(py => [rowsFor({ step })[py] ?? '', py] as const))
 
   // Eyes are holes in the body; a blink fills them for a moment.
   const blinkDur = seconds(BLINK_EVERY * TICK_MS)
   const blinkAt = keyTimes(0, (BLINK_EVERY - BLINK_TICKS) / BLINK_EVERY)
   const eyes = (facing: Pose['facing']) => {
-    const open = rowOf({ facing }, 3)
-    const shut = rowOf({ facing, isBlinking: true }, 3)
-    const lids = [...shut].map((p, i) => (p === '#' && open[i] !== '#' ? '#' : '.')).join('')
+    const open = eyeRows.map(py => [rowsFor({ facing })[py] ?? '', py] as const)
+    const lids = eyeRows.map(py => {
+      const shut = rowsFor({ facing, isBlinking: true })[py] ?? ''
+      const row = rowsFor({ facing })[py] ?? ''
+      return [[...shut].map((p, i) => (p === '#' && row[i] !== '#' ? '#' : '.')).join(''), py] as const
+    })
     const blink = toggle('0;1', blinkAt, blinkDur, seconds(-stride.elapsedMs))
-    return rects(open, 3) + layer(rects(lids, 3), 0, blink)
+    return draw(open) + layer(draw(lids), 0, blink)
   }
 
-  const end = lastX(columns)
-  const fill = hex(stride.look.color)
+  const end = lastX(columns, spriteWidth(look))
+  const fill = hex(look.color)
   if (end === 0) {
     return `<g fill="${fill}">${fixed}${eyes(0)}${legs(0)}</g>`
   }
