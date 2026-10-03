@@ -1,6 +1,6 @@
-// Clawd and the subagents' creatures, 12 by 6 pixels each, drawn two by two
+// The boss and the subagents' creatures, 12 by 6 pixels each, drawn two by two
 // in quadrant block characters: 6 terminal columns by 3 rows (7 at an odd
-// pixel offset). The top row holds headwear; Clawd wears none.
+// pixel offset). The top row holds headwear; the boss wears none.
 
 export const SPRITE_WIDTH = 12
 export const SPRITE_ROWS = 3

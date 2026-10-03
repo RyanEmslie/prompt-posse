@@ -1,6 +1,6 @@
 # prompt-posse
 
-A Claude Code mod that puts a little parade above your prompt while Claude works. Clawd walks back and forth, and every subagent Claude starts joins in as a creature of its own.
+A Claude Code mod that puts a little parade above your prompt while Claude works. The boss walks back and forth, and every subagent Claude starts joins in as a creature of its own.
 
 ```
               ▝▖▗▘        ▗▄██▄▖        ▀▙▟▀         ▙▟▙▟         ▝▀▀▘
@@ -9,16 +9,16 @@ A Claude Code mod that puts a little parade above your prompt while Claude works
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 ```
 
-From left to right: Clawd, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents.
+From left to right: the boss, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents.
 
 ## What it does
 
-- Clawd appears when a turn starts and walks the full width of the prompt. At each edge it stops, looks at you, and turns around. It blinks now and then, and it leaves when the turn ends.
+- The boss appears when a turn starts and walks the full width of the prompt. At each edge it stops, looks at you, and turns around. It blinks now and then, and it leaves when the turn ends.
 - Each running subagent gets its own creature. The creature's headwear and color depend on the subagent's type:
 
   | Subagent type | Headwear | Color |
   | --- | --- | --- |
-  | main turn (Clawd) | none | orange |
+  | main turn (the boss) | none | orange |
   | Explore | antennae | blue |
   | Plan | top hat | green |
   | general-purpose | propeller cap | purple |

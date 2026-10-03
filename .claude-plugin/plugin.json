@@ -1,7 +1,7 @@
 {
   "name": "prompt-posse",
   "version": "0.1.0",
-  "description": "Clawd and a posse of subagent creatures walk back and forth above the prompt while Claude Code works",
+  "description": "The boss and a posse of subagent creatures walk back and forth above the prompt while Claude Code works",
   "author": {
     "name": "Ryan Emslie",
     "url": "https://github.com/RyanEmslie"

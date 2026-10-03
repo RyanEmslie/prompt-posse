@@ -1,12 +1,12 @@
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import { CLAWD, hash, lookFor } from './looks'
+import { BOSS, hash, lookFor } from './looks'
 import { SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
 import { TICK_MS, createWalker, freeSpot, lastX, pose, step } from './walker'
 import type { Walker } from './walker'
 
-const KEY = 'clawd'
+const KEY = 'posse'
 const GROUND = '▔'
 // The columns the engine keeps at the band's right for its `[-]`, beside the
 // first row, the creatures' headwear row; the creatures and the ground reach
@@ -20,19 +20,19 @@ const ACTIVE = new Set(['pending', 'running', 'waiting'])
 type Creature = { walker: Walker; look: Look }
 
 type Walk = {
-  clawd: Creature
+  boss: Creature
   /** A creature for each active subagent, by agent id; background ones keep walking after the main turn ends. */
   subagents: Map<string, Creature>
   isMainTurn: boolean
   /** The band while it shows creatures, so the timer knows where to repaint. */
-  band: { requestId: string; columns: number; hasClawd: boolean } | null
+  band: { requestId: string; columns: number; hasBoss: boolean } | null
   timer: Timer | null
   ticks: number
 }
 
-const shown = (walk: Walk, hasClawd: boolean) =>
-  hasClawd
-    ? [walk.clawd, ...walk.subagents.values()]
+const shown = (walk: Walk, hasBoss: boolean) =>
+  hasBoss
+    ? [walk.boss, ...walk.subagents.values()]
     : [...walk.subagents.values()]
 
 const frame = (columns: number, creatures: readonly Creature[]) =>
@@ -70,7 +70,7 @@ async function list($: EngineInterface, walk: Walk) {
     if (walk.subagents.has(agent.id)) {
       continue
     }
-    const others = shown(walk, walk.band?.hasClawd ?? walk.isMainTurn).map(c => c.walker)
+    const others = shown(walk, walk.band?.hasBoss ?? walk.isMainTurn).map(c => c.walker)
     const x = freeSpot(columns, others)
     const heading = x < lastX(columns) / 2 ? 1 : -1
     const speed = 0.7 + (hash(agent.id) % 6) / 10
@@ -100,8 +100,8 @@ function tick($: EngineInterface, walk: Walk) {
     return
   }
 
-  const { requestId, columns, hasClawd } = walk.band
-  const creatures = shown(walk, hasClawd)
+  const { requestId, columns, hasBoss } = walk.band
+  const creatures = shown(walk, hasBoss)
   for (const creature of creatures) {
     const others = creatures.filter(c => c !== creature).map(c => c.walker)
     step(creature.walker, columns, others)
@@ -111,7 +111,7 @@ function tick($: EngineInterface, walk: Walk) {
 
 export const register: Register = on => {
   const walk: Walk = {
-    clawd: { walker: createWalker(), look: CLAWD },
+    boss: { walker: createWalker(), look: BOSS },
     subagents: new Map(),
     isMainTurn: false,
     band: null,
@@ -153,11 +153,11 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
     const columns = Math.min(e.props.bodyColumns + MARK_COLUMNS, 512)
-    const hasClawd = e.props.isWorking
+    const hasBoss = e.props.isWorking
 
     if (
       e.surface !== 'terminal' ||
-      (!hasClawd && walk.subagents.size === 0) ||
+      (!hasBoss && walk.subagents.size === 0) ||
       e.props.hasSurvey ||
       e.props.maxRows < BAND_ROWS ||
       columns < SPRITE_WIDTH / 2
@@ -166,11 +166,11 @@ export const register: Register = on => {
       return next(e)
     }
 
-    const creatures = shown(walk, hasClawd)
+    const creatures = shown(walk, hasBoss)
     for (const { walker } of creatures) {
       walker.x = Math.min(walker.x, lastX(columns))
     }
-    walk.band = { requestId: e.requestId, columns, hasClawd }
+    walk.band = { requestId: e.requestId, columns, hasBoss }
     const { Box, Raster, Text } = $.ui.resolve(e)
 
     // Each row is placed absolutely so it can reach under the engine's

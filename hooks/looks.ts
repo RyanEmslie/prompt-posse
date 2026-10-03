@@ -11,7 +11,7 @@ export const HORNS: Headwear = ['.#........#.', '..#......#..']
 export const MOHAWK: Headwear = ['.....##.....', '....####....']
 export const SPROUT: Headwear = ['....##.##...', '......#.....']
 
-export const CLAWD: Look = { color: 0xd77757, headwear: null }
+export const BOSS: Look = { color: 0xd77757, headwear: null }
 
 const BY_TYPE = new Map<string, Look>([
   ['Explore', { color: 0x61afef, headwear: ANTENNAE }],
@@ -33,7 +33,7 @@ export function lookFor(type: string): Look {
 
   const h = hash(type)
   return {
-    color: COLORS[h % COLORS.length] ?? CLAWD.color,
+    color: COLORS[h % COLORS.length] ?? BOSS.color,
     headwear: HEADWEAR[(h >>> 8) % HEADWEAR.length] ?? EARS,
   }
 }

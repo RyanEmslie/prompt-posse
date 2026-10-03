@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 import type { AgentInfo, On } from 'claude-code'
 
-import { ANTENNAE, CLAWD, lookFor } from '../hooks/looks'
+import { ANTENNAE, BOSS, lookFor } from '../hooks/looks'
 import { SPRITE_ROWS, glyphRows } from '../hooks/sprite'
 import {
   PAUSE_TICKS,
@@ -68,14 +68,14 @@ const TURN_END = {
 const STANDING = { facing: 0, step: 0, isBlinking: false } as const
 
 describe('sprite', () => {
-  test('Clawd stands bareheaded on four legs', () => {
-    const rows = glyphRows(7, [{ x: 1, pose: STANDING, look: CLAWD }])
+  test('the boss stands bareheaded on four legs', () => {
+    const rows = glyphRows(7, [{ x: 1, pose: STANDING, look: BOSS }])
     expect(rows).toEqual(['       ', ' ▐▛█▜▌ ', '▝▜▜▀▛▛▘'])
   })
 
   test('lifts alternate legs as it walks', () => {
     const at = (step: 1 | 2) =>
-      glyphRows(7, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: CLAWD }])
+      glyphRows(7, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: BOSS }])
     expect(at(1)[2]).toBe('▝▜▀▀▛▀▘')
     expect(at(2)[2]).toBe('▝▀▜▀▀▛▘')
   })
@@ -146,7 +146,7 @@ describe('band', () => {
     const ui = await $.ui.mount(band(true))
     const raster = await ui.find({ type: 'Raster' })
     expect(raster?.props).toMatchObject({
-      key: 'clawd',
+      key: 'posse',
       columns: 45,
       rows: SPRITE_ROWS,
     })
