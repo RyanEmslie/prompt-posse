@@ -4,6 +4,8 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-03
+
 ### Changed
 - The `/posse` messages, the legend and the command's description are reworded. They now say what the posse is and use the same words throughout: the posse, the boss (Claude itself) and agents.
 - Turning the posse on now says it stays on in new sessions, as turning it off already did.
