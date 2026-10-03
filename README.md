@@ -31,15 +31,17 @@ From left to right: the boss, the biggest of them, then the creatures for Explor
   | any other type | ears, horns, a mohawk or a sprout | picked from the type's name | picked from the type's name |
 
   A custom type always gets the same look, never headwear a built-in type wears, and never a hat the color of its body.
-- Each creature walks at its own pace. In the terminal, when two meet, they stop briefly and turn around. In the desktop app they walk past each other.
+- The boss always walks at the same pace: 10 columns a second at the default speed. Each subagent's creature gets one of six paces, from 7 to 12 columns a second, picked from the subagent's id. In the terminal, when two meet, they stop briefly and turn around. In the desktop app they walk past each other.
 - Subagents running in the background keep walking after the main turn ends, with the boss leading them. The strip disappears when the last one finishes.
+- The mod checks which subagents are running whenever one starts, whenever a turn ends, and every half second while anything is walking. So a creature can arrive or leave up to half a second after its subagent starts or finishes.
+- The strip steps aside while Claude Code is showing a survey, when there are fewer than 4 free rows above the prompt, or when it's under 8 columns wide, too narrow for the boss. It comes back when there's room again.
 
 ## Requirements
 
 - Claude Code 2.1.289 or newer. The function-hook API this mod uses is in early access and may change between releases.
 - The terminal or the Claude desktop app. VS Code and mobile don't draw the creatures.
 
-In the terminal, the creatures are drawn in text characters and repainted 20 times a second. In the desktop app, they're one SVG that animates itself, so nothing is sent per frame. It's only redrawn when a creature arrives or leaves.
+In the terminal, the creatures are drawn in text characters and repainted 20 times a second. In the desktop app, they're one SVG that animates itself, so nothing is sent per frame. It's redrawn when a creature arrives or leaves, when a turn starts or ends, and when the window is resized. A resize changes how far each creature has to walk, so the creatures jump to new spots.
 
 ## Install
 
