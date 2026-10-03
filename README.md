@@ -93,6 +93,8 @@ claude plugin validate .
 claude plugin test .
 ```
 
+What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Known limits
 
 - In the terminal, the `[-]` collapse button sits on the strip's top row, so near the right edge it briefly covers a creature's headwear.
