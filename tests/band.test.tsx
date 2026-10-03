@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { BOSS } from '../hooks/looks'
+import { BOSS, lookFor } from '../hooks/looks'
 import { SPRITE_ROWS } from '../hooks/sprite'
 import { TICK_MS } from '../hooks/walker'
 import { SPAWN, TURN_END, agent, band, decodeCells, engine } from './kit'
@@ -77,7 +77,7 @@ describe('terminal band', () => {
     expect(blits).toHaveLength(5)
   })
 
-  test('a background subagent walks on until it finishes', async ($, on) => {
+  test('the boss walks with a background subagent until it finishes', async ($, on) => {
     const clock = mock.clock(on)
     const agents = [agent('a1', 'Explore')]
     const blits = engine(on, agents)
@@ -87,7 +87,10 @@ describe('terminal band', () => {
     await clock.advance(TICK_MS * 10)
     await $.turn.complete(TURN_END)
     await ui.redraw(band(false, 'terminal').props)
-    expect(await ui.find({ type: 'Raster' })).toBeDefined()
+    const raster = await ui.find({ type: 'Raster' })
+    const colors = new Set(decodeCells(String(raster?.props.cells)).map(cell => cell.fg))
+    expect(colors.has(BOSS.color)).toBe(true)
+    expect(colors.has(lookFor('Explore').color)).toBe(true)
 
     const walking = blits.length
     await clock.advance(TICK_MS * 4)

@@ -180,11 +180,13 @@ export const register: Register = on => {
     // Only the terminal's band reaches under the engine's columns.
     const reach = e.surface === 'terminal' ? MARK_COLUMNS : 0
     const columns = Math.min(e.props.bodyColumns + reach, 512)
-    const hasBoss = e.props.isWorking
+    // The boss leads the posse: it walks during the turn and for as long
+    // as any subagent is still out.
+    const hasBoss = e.props.isWorking || walk.subagents.size > 0
 
     if (
       (e.surface !== 'terminal' && e.surface !== 'desktop') ||
-      (!hasBoss && walk.subagents.size === 0) ||
+      !hasBoss ||
       e.props.hasSurvey ||
       e.props.maxRows < BAND_ROWS ||
       columns < SPRITE_WIDTH / 2

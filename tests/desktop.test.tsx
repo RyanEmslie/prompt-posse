@@ -55,7 +55,7 @@ describe('desktop band', () => {
     expect(animations(String(svg?.props.source))).toBe(4)
   })
 
-  test('a background subagent walks on after the turn ends', async ($, on) => {
+  test('the boss leads a background subagent after the turn ends', async ($, on) => {
     const clock = mock.clock(on)
     const agents = [agent('a1', 'Explore')]
     engine(on, agents)
@@ -67,8 +67,9 @@ describe('desktop band', () => {
     await ui.redraw(band(false, 'desktop').props)
 
     const svg = await ui.find({ type: 'Svg' })
-    expect(svg?.props.alt).toBe('1 subagent creature walking above the prompt')
-    expect(animations(String(svg?.props.source))).toBe(1)
+    expect(svg?.props.alt).toBe('The boss and 1 subagent creature walking above the prompt')
+    expect(animations(String(svg?.props.source))).toBe(2)
+    expect(String(svg?.props.source)).toContain('#d77757')
     expect(String(svg?.props.source)).toContain('#61afef')
 
     agents.length = 0

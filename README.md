@@ -17,7 +17,7 @@ From left to right: the boss, then the creatures for Explore, Plan, general-purp
 
 ## What it does
 
-- The boss appears when a turn starts and walks the full width of the prompt. At each edge it stops, looks at you, and turns around. It blinks now and then, and it leaves when the turn ends.
+- The boss appears when a turn starts and walks the full width of the prompt. At each edge it stops, looks at you, and turns around. It blinks now and then. It leaves once the turn has ended and no subagent is still walking.
 - Each running subagent gets its own creature. The creature's headwear and color depend on the subagent's type:
 
   | Subagent type | Headwear | Color |
@@ -32,7 +32,7 @@ From left to right: the boss, then the creatures for Explore, Plan, general-purp
 
   A custom type always gets the same look, and never headwear a built-in type wears.
 - Each creature walks at its own pace. In the terminal, when two meet, they stop briefly and turn around. In the desktop app they walk past each other.
-- Subagents running in the background keep walking after the main turn ends. The strip disappears when the last one finishes.
+- Subagents running in the background keep walking after the main turn ends, with the boss leading them. The strip disappears when the last one finishes.
 
 ## Requirements
 
