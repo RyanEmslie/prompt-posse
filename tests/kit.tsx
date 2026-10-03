@@ -51,10 +51,13 @@ export const SPAWN = {
   fork: false,
 }
 
+/** What a listing answers: the agents, or a function a test scripts it with. */
+export type Listing = AgentInfo[] | (() => AgentInfo[] | Promise<AgentInfo[]>)
+
 // What the engine would do beneath the plugin: draw its own band, take every
 // redraw request and repaint, recording the cells each repaint carries, and
 // list the agents the test says are there.
-export function engine(on: On, agents: AgentInfo[] = []) {
+export function engine(on: On, agents: Listing = []) {
   const blits: string[] = []
   on('ui.render', { component: 'AbovePrompt' }, ($, e) => {
     const { Text } = $.ui.resolve(e)
@@ -67,7 +70,10 @@ export function engine(on: On, agents: AgentInfo[] = []) {
     }
     return { value: {} }
   })
-  on('agent.list', () => ({ value: [...agents] }))
+  on('agent.list', async () => ({
+    value: typeof agents === 'function' ? await agents() : [...agents],
+  }))
+  on('ui.log', () => ({ value: undefined }))
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
   return blits

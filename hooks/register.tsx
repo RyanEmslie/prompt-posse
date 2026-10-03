@@ -17,6 +17,10 @@ const BAND_ROWS = SPRITE_ROWS + 1
 // How often, in ticks, the session's agents are listed again.
 const LIST_EVERY = 10
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
+// A teammate in a terminal pane of its own reports running by what it last
+// wrote, which a pane that died leaves standing; after this long its
+// creature is retired until the teammate goes idle or ends.
+export const PANE_STALE_MS = 10 * 60_000
 // Where `/posse` remembers being switched off, across sessions.
 const STORE_KEY = 'isOn'
 const USAGE =
@@ -36,6 +40,12 @@ type Walk = {
   isMainTurn: boolean
   /** Whether `/posse` has it switched on. */
   isOn: boolean
+  /** Listings started so far: only the latest one is applied. */
+  listings: number
+  /** Pane teammates whose creatures were retired, until they stop running. */
+  stale: Set<string>
+  /** Whether this load has caught up with a turn and agents already under way. */
+  isSynced: boolean
   /** The band while it shows creatures, so the timer knows where to repaint. */
   band: {
     requestId: string
@@ -79,12 +89,45 @@ function wake($: EngineInterface, walk: Walk) {
   }
 }
 
+/** Lists the agents again, and keeps the timer going to retry if that fails. */
+function relist($: EngineInterface, walk: Walk) {
+  void list($, walk).catch((error: unknown) => {
+    $.ui.log(`prompt-posse: listing agents failed: ${String(error)}`, { to: 'debug' })
+    wake($, walk)
+  })
+}
+
 /** Brings the creatures in line with the session's active agents. */
 async function list($: EngineInterface, walk: Walk) {
+  const listing = ++walk.listings
   const agents = await $.agent.list()
   const active = new Map(
     agents.filter(agent => ACTIVE.has(agent.status)).map(agent => [agent.id, agent]),
   )
+  const isPane = (agent: { id: string; teammateId?: string }) => agent.id === agent.teammateId
+  const needsTime = [...active.values()].some(
+    agent => !walk.subagents.has(agent.id) || isPane(agent),
+  )
+  const now = needsTime ? await $.clock.now() : 0
+  // A listing that started before another has nothing newer to say.
+  if (listing !== walk.listings) {
+    return
+  }
+
+  for (const id of walk.stale) {
+    if (!active.has(id)) {
+      walk.stale.delete(id)
+    }
+  }
+  for (const agent of active.values()) {
+    const creature = walk.subagents.get(agent.id)
+    if (isPane(agent) && creature !== undefined && now - creature.since > PANE_STALE_MS) {
+      walk.stale.add(agent.id)
+    }
+  }
+  for (const id of walk.stale) {
+    active.delete(id)
+  }
 
   let isChanged = false
   for (const id of walk.subagents.keys()) {
@@ -95,7 +138,6 @@ async function list($: EngineInterface, walk: Walk) {
   }
 
   const columns = walk.band?.columns ?? 80
-  const now = await $.clock.now()
   for (const agent of active.values()) {
     if (walk.subagents.has(agent.id)) {
       continue
@@ -125,7 +167,7 @@ async function list($: EngineInterface, walk: Walk) {
 function tick($: EngineInterface, walk: Walk) {
   walk.ticks += 1
   if (walk.ticks % LIST_EVERY === 0) {
-    void list($, walk)
+    relist($, walk)
   }
   // The desktop's SVG animates itself; only the terminal is repainted.
   if (walk.band === null || walk.band.surface !== 'terminal') {
@@ -147,6 +189,9 @@ export const register: Register = on => {
     subagents: new Map(),
     isMainTurn: false,
     isOn: true,
+    listings: 0,
+    stale: new Set(),
+    isSynced: false,
     band: null,
     timer: null,
     ticks: 0,
@@ -179,7 +224,7 @@ export const register: Register = on => {
       if (walk.isMainTurn) {
         wake($, walk)
       }
-      void list($, walk)
+      relist($, walk)
     } else {
       stop(walk)
     }
@@ -211,7 +256,7 @@ export const register: Register = on => {
       }
       $.ui.invalidate('ui.render')
     }
-    void list($, walk)
+    relist($, walk)
 
     return next(e)
   })
@@ -219,7 +264,7 @@ export const register: Register = on => {
   on('agent.spawn', async ($, e, next) => {
     const result = await next(e)
     if (result.agentId !== undefined) {
-      void list($, walk)
+      relist($, walk)
     }
 
     return result
@@ -233,9 +278,24 @@ export const register: Register = on => {
     // as any subagent is still out.
     const hasBoss = e.props.isWorking || walk.subagents.size > 0
 
+    if ((e.surface !== 'terminal' && e.surface !== 'desktop') || !walk.isOn) {
+      walk.band = null
+      return next(e)
+    }
+
+    // A load (a hot reload among them) can come in mid-turn, or while
+    // background subagents walk: the first drawing catches up with both.
+    if (!walk.isSynced) {
+      walk.isSynced = true
+      if (e.props.isWorking && !walk.isMainTurn) {
+        walk.isMainTurn = true
+        walk.boss.since = await $.clock.now()
+        wake($, walk)
+      }
+      relist($, walk)
+    }
+
     if (
-      (e.surface !== 'terminal' && e.surface !== 'desktop') ||
-      !walk.isOn ||
       !hasBoss ||
       e.props.hasSurvey ||
       e.props.maxRows < BAND_ROWS ||

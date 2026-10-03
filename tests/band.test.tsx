@@ -3,6 +3,9 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import { BOSS, lookFor } from '../hooks/looks'
 import { SPRITE_ROWS } from '../hooks/sprite'
 import { TICK_MS } from '../hooks/walker'
+import type { AgentInfo } from 'claude-code'
+
+import { PANE_STALE_MS } from '../hooks/register'
 import { SPAWN, TURN_END, agent, band, decodeCells, engine } from './kit'
 
 describe('terminal band', () => {
@@ -107,12 +110,13 @@ describe('terminal band', () => {
 
   test('a subagent started while nothing walks wakes the walk', async ($, on) => {
     const clock = mock.clock(on)
-    const agents = [agent('a1', 'Explore')]
+    const agents: AgentInfo[] = []
     const blits = engine(on, agents)
     on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a1' }))
     const ui = await $.ui.mount(band(false, 'terminal'))
     expect(await ui.find({ type: 'Raster' })).toBeUndefined()
 
+    agents.push(agent('a1', 'Explore'))
     await $.agent.spawn(SPAWN)
     await clock.settle()
     await ui.redraw(band(false, 'terminal').props)
@@ -134,4 +138,105 @@ describe('terminal band', () => {
     expect(await ui.find({ type: 'Raster' })).toBeUndefined()
     expect(blits).toHaveLength(0)
   })
+
+  test('a listing that started first but answers last is ignored', async ($, on) => {
+    const clock = mock.clock(on)
+    // Each listing after the first answers this late, with these agents.
+    const script: [number, AgentInfo[]][] = [
+      [0, []],
+      [300, [agent('a1', 'Explore')]],
+      [100, []],
+    ]
+    let calls = 0
+    engine(on, async () => {
+      const [late, agents] = script[calls++] ?? [0, []]
+      await clock.sleep(late)
+      return agents
+    })
+    on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a1' }))
+    const ui = await $.ui.mount(band(false, 'terminal'))
+    await clock.settle()
+
+    void $.agent.spawn(SPAWN)
+    await clock.settle()
+    await $.turn.complete({ ...TURN_END, turnId: 't2', agentId: 'a1' })
+    await clock.advance(350)
+    await ui.redraw(band(false, 'terminal').props)
+    expect(calls).toBe(3)
+    expect(await ui.find({ type: 'Raster' })).toBeUndefined()
+  })
+
+  test('a failed listing is tried again on the next check', async ($, on) => {
+    const clock = mock.clock(on)
+    const agents: AgentInfo[] = []
+    let isDown = false
+    engine(on, () => {
+      if (isDown) throw new Error('agents unavailable')
+      return [...agents]
+    })
+    on('agent.spawn', () => ({ model: 'claude-haiku-4-5', agentId: 'a1' }))
+    const ui = await $.ui.mount(band(false, 'terminal'))
+    await clock.settle()
+
+    isDown = true
+    agents.push(agent('a1', 'Explore'))
+    await $.agent.spawn(SPAWN)
+    await clock.settle()
+    isDown = false
+    await clock.advance(TICK_MS * 10)
+    await ui.redraw(band(false, 'terminal').props)
+    expect(await ui.find({ type: 'Raster' })).toBeDefined()
+  })
+
+  test('a load mid-turn catches up with the turn and its subagents', async ($, on) => {
+    const clock = mock.clock(on)
+    const blits = engine(on, [agent('a1', 'Explore')])
+    const ui = await $.ui.mount(band(true, 'terminal'))
+
+    await clock.advance(TICK_MS * 10)
+    expect(blits).toHaveLength(10)
+    await ui.redraw(band(true, 'terminal').props)
+    const raster = await ui.find({ type: 'Raster' })
+    const colors = new Set(decodeCells(String(raster?.props.cells)).map(cell => cell.fg))
+    expect(colors.has(BOSS.color)).toBe(true)
+    expect(colors.has(lookFor('Explore').color)).toBe(true)
+  })
+
+  test('a load after the turn still finds background subagents', async ($, on) => {
+    const clock = mock.clock(on)
+    const blits = engine(on, [agent('a1', 'Explore')])
+    const ui = await $.ui.mount(band(false, 'terminal'))
+
+    await clock.settle()
+    await ui.redraw(band(false, 'terminal').props)
+    expect(await ui.find({ type: 'Raster' })).toBeDefined()
+    await clock.advance(TICK_MS * 4)
+    expect(blits).toHaveLength(4)
+  })
+
+  test(
+    'a pane teammate stuck at running is retired after a while',
+    { timeoutMs: 60_000 },
+    async ($, on) => {
+      const clock = mock.clock(on)
+      const pane = { ...agent('scout@crew', 'teammate'), teammateId: 'scout@crew' }
+      const inProcess = { ...agent('a7', 'teammate'), teammateId: 'helper@crew' }
+      engine(on, [pane, inProcess])
+      const ui = await $.ui.mount(band(false, 'desktop'))
+      await clock.settle()
+      await ui.redraw(band(false, 'desktop').props)
+      expect((await ui.find({ type: 'Svg' }))?.props.alt).toBe(
+        'The boss and 2 subagent creatures walking above the prompt',
+      )
+
+      // The mock clock takes at most 10,000 waits an advance: go a minute at a time.
+      for (let ms = 0; ms < PANE_STALE_MS + TICK_MS * 20; ms += 60_000) {
+        await clock.advance(60_000)
+      }
+      await ui.redraw(band(false, 'desktop').props)
+      expect((await ui.find({ type: 'Svg' }))?.props.alt).toBe(
+        'The boss and 1 subagent creature walking above the prompt',
+      )
+    },
+  )
 })

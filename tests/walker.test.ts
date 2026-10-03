@@ -113,4 +113,35 @@ describe('walker', () => {
     )
     expect(freeSpot(30, 12, [createWalker(0, 1, 1, 16)])).toBe(lastX(30))
   })
+
+  test('creatures of different widths that overlap walk apart', () => {
+    const boss = createWalker(0, 1, 1, 16)
+    const standing = { ...createWalker(2), pause: 1000 }
+    for (let i = 0; i < 20; i++) step(boss, 60, [standing])
+    expect(boss.x).toBeGreaterThan(10)
+
+    const sub = createWalker(11, -1)
+    const still = { ...createWalker(9, 1, 1, 16), pause: 1000 }
+    for (let i = 0; i < 20; i++) step(sub, 60, [still])
+    expect(sub.x).toBeLessThan(9)
+  })
+
+  test('a newcomer can start at an odd pixel when only that fits', () => {
+    const others = [createWalker(1, 1, 1, 16), createWalker(33)]
+    expect(freeSpot(23, 12, others)).toBe(19)
+  })
+
+  test('a crowd too big to keep its distance walks through itself', () => {
+    const crowd = Array.from({ length: 14 }, (_, i) =>
+      createWalker(i * 10, i % 2 === 0 ? 1 : -1),
+    )
+    for (let i = 0; i < 40; i++) {
+      for (const walker of crowd) {
+        step(walker, 80, crowd.filter(other => other !== walker))
+      }
+    }
+    for (const walker of crowd) {
+      expect(walker.travelled).toBeGreaterThanOrEqual(20)
+    }
+  })
 })

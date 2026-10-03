@@ -40,9 +40,12 @@ export const createWalker = (
 export const lastX = (columns: number, width = SPRITE_WIDTH) =>
   Math.max(0, columns * 2 - width)
 
-/** Free pixels between a sprite at `x`, `width` wide, and another; below 0 they overlap. */
+/**
+ * Free pixels between a sprite at `x`, `width` wide, and another; below 0
+ * they overlap, by less the closer they are to pulling apart either way.
+ */
 const gapTo = (x: number, width: number, other: Walker) =>
-  x <= other.x ? other.x - (x + width) : x - (other.x + other.width)
+  Math.max(other.x - (x + width), x - (other.x + other.width))
 
 /** One tick: `speed` pixels along, stopping to turn at an edge or a bump. */
 export function step(
@@ -60,10 +63,18 @@ export function step(
     return
   }
 
+  // A strip too crowded for everyone to keep their distance lets them walk
+  // through each other, as on the desktop, rather than stand stuck.
+  const needed = others.reduce(
+    (sum, other) => sum + other.width + MIN_GAP,
+    walker.width + MIN_GAP,
+  )
+  const blocking = needed > columns * 2 ? [] : others
+
   walker.progress += walker.speed
   while (walker.progress >= 1 && walker.pause === 0) {
     walker.progress -= 1
-    advance(walker, columns, others)
+    advance(walker, columns, blocking)
   }
 }
 
@@ -101,7 +112,7 @@ export function freeSpot(
 ): number {
   let best = 0
   let bestGap = -Infinity
-  for (let x = 0; x <= lastX(columns, width); x += 2) {
+  for (let x = 0; x <= lastX(columns, width); x++) {
     const gap = Math.min(...others.map(other => gapTo(x, width, other)))
     if (gap > bestGap) {
       best = x
