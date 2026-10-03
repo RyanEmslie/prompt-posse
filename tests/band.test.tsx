@@ -5,11 +5,12 @@ import { SPRITE_ROWS } from '../hooks/sprite'
 import { TICK_MS } from '../hooks/walker'
 import type { AgentInfo } from 'claude-code'
 
-import { PANE_STALE_MS } from '../hooks/register'
+import { LIST_EVERY, PANE_STALE_MS } from '../hooks/register'
 import { SPAWN, TURN_END, agent, band, decodeCells, engine } from './kit'
 
 describe('terminal band', () => {
   test('leaves the band to the engine while idle', async ($, on) => {
+    mock.clock(on)
     engine(on)
     const ui = await $.ui.mount(band(false, 'terminal'))
     expect(await ui.find({ type: 'Raster' })).toBeUndefined()
@@ -17,6 +18,7 @@ describe('terminal band', () => {
   })
 
   test('steps aside for a survey, a short strip or a narrow one', async ($, on) => {
+    mock.clock(on)
     engine(on)
     for (const props of [{ hasSurvey: true }, { maxRows: SPRITE_ROWS }, { bodyColumns: 0 }]) {
       const ui = await $.ui.mount(band(true, 'terminal', props))
@@ -27,6 +29,7 @@ describe('terminal band', () => {
   })
 
   test('draws nothing of its own in VS Code', async ($, on) => {
+    mock.clock(on)
     engine(on)
     const ui = await $.ui.mount(band(true, 'vscode'))
     expect(await ui.find({ text: 'engine band' })).toBeDefined()
@@ -87,7 +90,7 @@ describe('terminal band', () => {
     const ui = await $.ui.mount(band(true, 'terminal'))
 
     await $.turn.start({ text: 'go', turnId: 't1' })
-    await clock.advance(TICK_MS * 10)
+    await clock.advance(TICK_MS * LIST_EVERY)
     await $.turn.complete(TURN_END)
     await ui.redraw(band(false, 'terminal').props)
     const raster = await ui.find({ type: 'Raster' })
@@ -100,7 +103,7 @@ describe('terminal band', () => {
     expect(blits).toHaveLength(walking + 4)
 
     agents.length = 0
-    await clock.advance(TICK_MS * 10)
+    await clock.advance(TICK_MS * LIST_EVERY)
     const finished = blits.length
     await clock.advance(TICK_MS * 10)
     expect(blits).toHaveLength(finished)
@@ -183,7 +186,7 @@ describe('terminal band', () => {
     await $.agent.spawn(SPAWN)
     await clock.settle()
     isDown = false
-    await clock.advance(TICK_MS * 10)
+    await clock.advance(TICK_MS * LIST_EVERY)
     await ui.redraw(band(false, 'terminal').props)
     expect(await ui.find({ type: 'Raster' })).toBeDefined()
   })
@@ -216,7 +219,6 @@ describe('terminal band', () => {
 
   test(
     'a pane teammate stuck at running is retired after a while',
-    { timeoutMs: 60_000 },
     async ($, on) => {
       const clock = mock.clock(on)
       const pane = { ...agent('scout@crew', 'teammate'), teammateId: 'scout@crew' }
@@ -229,10 +231,7 @@ describe('terminal band', () => {
         'The boss and 2 agents walking above the prompt: teammate and teammate',
       )
 
-      // The mock clock takes at most 10,000 waits an advance: go a minute at a time.
-      for (let ms = 0; ms < PANE_STALE_MS + TICK_MS * 20; ms += 60_000) {
-        await clock.advance(60_000)
-      }
+      await clock.advance(PANE_STALE_MS + TICK_MS * LIST_EVERY * 2)
       await ui.redraw(band(false, 'desktop').props)
       expect((await ui.find({ type: 'Svg' }))?.props.alt).toBe(
         'The boss and 1 agent walking above the prompt: teammate',

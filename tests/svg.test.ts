@@ -4,7 +4,7 @@ import { BOSS, lookFor } from '../hooks/looks'
 import { BOSS_WIDTH } from '../hooks/sprite'
 import { posseSvg } from '../hooks/svg'
 import { BLINK_EVERY, PAUSE_TICKS, TICK_MS, lastX } from '../hooks/walker'
-import { animations, attributesOf } from './kit'
+import { animations, attributesOf, hex } from './kit'
 
 const COLUMNS = 80
 const END = lastX(COLUMNS, BOSS_WIDTH)
@@ -70,7 +70,6 @@ describe('desktop svg', () => {
   test('draws headwear in its own color, apart from the body', () => {
     const explore = lookFor('Explore')
     const svg = posseSvg(COLUMNS, [{ ...stride(0, 1), look: explore }])
-    const hex = (color = 0) => `#${color.toString(16).padStart(6, '0')}`
     expect(svg).toContain(`<g fill="${hex(explore.color)}">`)
     expect(svg).toContain(`<g fill="${hex(explore.hatColor)}">`)
     expect(animations(svg)).toBe(1)

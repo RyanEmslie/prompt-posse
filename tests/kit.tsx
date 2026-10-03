@@ -32,24 +32,27 @@ export const agent = (
   status: AgentStatus = 'running',
 ): AgentInfo => ({ id, type, description: 'a task', status })
 
-export const TURN_END = {
+export const TURN_END = Object.freeze({
   answer: '',
   durationMs: 0,
   isAborted: false,
   turnId: 't1',
   reason: 'answer',
-} as const
+} as const)
 
-export const SPAWN = {
+export const SPAWN = Object.freeze({
   tool_use_id: 'toolu_1',
   prompt: 'Look around.',
   description: 'a task',
   subagentType: 'Explore',
-  provider: { plugin: 'engine', tier: 'core' as const },
+  provider: Object.freeze({ plugin: 'engine', tier: 'core' as const }),
   parentModel: 'claude-opus-5-5',
   background: true,
   fork: false,
-}
+})
+
+/** A look's color as the SVG writes it. */
+export const hex = (color = 0) => `#${color.toString(16).padStart(6, '0')}`
 
 /** What a listing answers: the agents, or a function a test scripts it with. */
 export type Listing = AgentInfo[] | (() => AgentInfo[] | Promise<AgentInfo[]>)

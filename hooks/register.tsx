@@ -15,7 +15,7 @@ const GROUND = '▔'
 const MARK_COLUMNS = 5
 const BAND_ROWS = SPRITE_ROWS + 1
 // How often, in ticks, the session's agents are listed again.
-const LIST_EVERY = 10
+export const LIST_EVERY = 10
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
 // A teammate in a terminal pane of its own reports running by what it last
 // wrote, which a pane that died leaves standing; after this long its
@@ -56,6 +56,8 @@ type Walk = {
     surface: 'terminal' | 'desktop'
   } | null
   timer: Timer | null
+  /** How often the timer fires: every tick on the terminal, only to list agents on the desktop. */
+  timerMs: number
   ticks: number
 }
 
@@ -93,10 +95,19 @@ function stop(walk: Walk) {
   walk.timer = null
 }
 
+// The desktop's SVG animates itself, so its timer only wakes to list agents.
+const periodFor = (walk: Walk) =>
+  walk.band?.surface === 'desktop' ? TICK_MS * LIST_EVERY : TICK_MS
+
+/** Starts the timer, or restarts it when the band moved to a surface that wants another pace. */
 function wake($: EngineInterface, walk: Walk) {
-  if (walk.isOn) {
-    walk.timer ??= $.clock.every(TICK_MS, () => tick($, walk))
+  const ms = periodFor(walk)
+  if (!walk.isOn || (walk.timer !== null && walk.timerMs === ms)) {
+    return
   }
+  walk.timer?.cancel()
+  walk.timerMs = ms
+  walk.timer = $.clock.every(ms, () => tick($, walk))
 }
 
 /** Lists the agents again, and keeps the timer going to retry if that fails. */
@@ -180,7 +191,7 @@ async function list($: EngineInterface, walk: Walk) {
 
 function tick($: EngineInterface, walk: Walk) {
   walk.ticks += 1
-  if (walk.ticks % LIST_EVERY === 0) {
+  if (walk.timerMs !== TICK_MS || walk.ticks % LIST_EVERY === 0) {
     relist($, walk)
   }
   // The desktop's SVG animates itself; only the terminal is repainted.
@@ -208,6 +219,7 @@ export const register: Register = on => {
     isSynced: false,
     band: null,
     timer: null,
+    timerMs: TICK_MS,
     ticks: 0,
   }
 
@@ -324,6 +336,9 @@ export const register: Register = on => {
       walker.x = Math.min(walker.x, lastX(columns, walker.width))
     }
     walk.band = { requestId: e.requestId, columns, hasBoss, surface: e.surface }
+    if (walk.timer !== null) {
+      wake($, walk)
+    }
 
     if (e.surface === 'desktop') {
       const now = await $.clock.now()

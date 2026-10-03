@@ -4,6 +4,9 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 
 ## [Unreleased]
 
+### Changed
+- In the desktop app, the mod's timer now wakes only twice a second, to check for agents. The animation runs on its own, so it no longer ticks 20 times a second there.
+
 ## [0.4.2] - 2026-10-03
 
 ### Changed
