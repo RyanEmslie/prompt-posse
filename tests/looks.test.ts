@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { BOSS, lookFor } from '../hooks/looks'
+import { BOSS, LEGEND, legendText, lookFor } from '../hooks/looks'
 
 describe('looks', () => {
   test('every type always gets the same look, and its own headwear', () => {
@@ -27,5 +27,12 @@ describe('looks', () => {
     }
     expect(BOSS.isBoss).toBe(true)
     expect(BOSS.headwear).toBeNull()
+  })
+
+  test('the legend describes exactly the looks the posse draws', () => {
+    for (const { type, look } of LEGEND) {
+      expect(lookFor(type)).toEqual(look)
+    }
+    expect(legendText().split('\n')).toHaveLength(LEGEND.length + 3)
   })
 })

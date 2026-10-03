@@ -1,6 +1,6 @@
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import { BOSS, hash, lookFor } from './looks'
+import { BOSS, hash, legendText, lookFor } from './looks'
 import { BOSS_WIDTH, SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
 import { posseSvg } from './svg'
@@ -17,6 +17,10 @@ const BAND_ROWS = SPRITE_ROWS + 1
 // How often, in ticks, the session's agents are listed again.
 const LIST_EVERY = 10
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
+// Where `/posse` remembers being switched off, across sessions.
+const STORE_KEY = 'isOn'
+const USAGE =
+  '`/posse` switches the posse on or off. `/posse on` and `/posse off` set it, and `/posse legend` shows who wears what.'
 
 type Creature = {
   walker: Walker
@@ -30,6 +34,8 @@ type Walk = {
   /** A creature for each active subagent, by agent id; background ones keep walking after the main turn ends. */
   subagents: Map<string, Creature>
   isMainTurn: boolean
+  /** Whether `/posse` has it switched on. */
+  isOn: boolean
   /** The band while it shows creatures, so the timer knows where to repaint. */
   band: {
     requestId: string
@@ -68,7 +74,9 @@ function stop(walk: Walk) {
 }
 
 function wake($: EngineInterface, walk: Walk) {
-  walk.timer ??= $.clock.every(TICK_MS, () => tick($, walk))
+  if (walk.isOn) {
+    walk.timer ??= $.clock.every(TICK_MS, () => tick($, walk))
+  }
 }
 
 /** Brings the creatures in line with the session's active agents. */
@@ -138,10 +146,51 @@ export const register: Register = on => {
     boss: { walker: createWalker(0, 1, 1, BOSS_WIDTH), look: BOSS, since: 0 },
     subagents: new Map(),
     isMainTurn: false,
+    isOn: true,
     band: null,
     timer: null,
     ticks: 0,
   }
+
+  on('session.start', async ($, e, next) => {
+    walk.isOn = (await $.store.get(STORE_KEY)) !== false
+    await $.command.register({
+      name: 'posse',
+      description: 'Switch the posse above the prompt on or off, or show who wears what',
+      argumentHint: '[on|off|legend]',
+      immediate: true,
+    })
+
+    return next(e)
+  })
+
+  on('command.run', { command: 'posse' }, async ($, e) => {
+    const arg = e.args.trim().toLowerCase()
+    if (arg === 'legend') {
+      return { text: legendText() }
+    }
+    if (arg !== '' && arg !== 'on' && arg !== 'off') {
+      return { text: USAGE }
+    }
+
+    walk.isOn = arg === '' ? !walk.isOn : arg === 'on'
+    await $.store.set(STORE_KEY, walk.isOn)
+    if (walk.isOn) {
+      if (walk.isMainTurn) {
+        wake($, walk)
+      }
+      void list($, walk)
+    } else {
+      stop(walk)
+    }
+    $.ui.invalidate('ui.render')
+
+    return {
+      text: walk.isOn
+        ? 'The posse is on. It walks above the prompt while Claude works.'
+        : 'The posse is off, here and in new sessions. Run `/posse` to bring it back.',
+    }
+  })
 
   on('turn.start', async ($, e, next) => {
     walk.isMainTurn = true
@@ -186,6 +235,7 @@ export const register: Register = on => {
 
     if (
       (e.surface !== 'terminal' && e.surface !== 'desktop') ||
+      !walk.isOn ||
       !hasBoss ||
       e.props.hasSurvey ||
       e.props.maxRows < BAND_ROWS ||

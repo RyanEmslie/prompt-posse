@@ -2,7 +2,7 @@
 // a listing returns, the engine beneath the plugin, and readers for what the
 // plugin draws.
 
-import type { AgentInfo, AgentStatus, On, RenderSurface } from 'claude-code'
+import type { AgentInfo, AgentStatus, CommandSpec, On, RenderSurface } from 'claude-code'
 
 type BandProps = { hasSurvey: boolean; maxRows: number; bodyColumns: number }
 
@@ -71,6 +71,35 @@ export function engine(on: On, agents: AgentInfo[] = []) {
   on('turn.start', (_$, e) => ({ turnId: e.turnId }))
   on('turn.complete', () => ({ text: '' }))
   return blits
+}
+
+export const START = { cwd: '/repo', surface: 'terminal', isInteractive: true } as const
+
+/** `/posse` with `args`, typed at the prompt. */
+export const posse = (args = '') => ({
+  command: 'posse',
+  args,
+  origin: { kind: 'composer' as const },
+  presentation: { isFullscreen: false, columns: 80 },
+})
+
+/**
+ * The rest of the engine a command needs: session start, command
+ * registration, and a store held in `stored`, standing in for disk.
+ */
+export function host(on: On, stored = new Map<string, unknown>()) {
+  const commands: CommandSpec[] = []
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('command.register', (_$, e) => {
+    commands.push(e)
+    return { value: { command: e.name } }
+  })
+  on('store.get', (_$, e) => ({ value: stored.get(e.key) }))
+  on('store.set', (_$, e) => {
+    stored.set(e.key, e.value)
+    return { value: undefined }
+  })
+  return { commands, stored }
 }
 
 const BASE64 =

@@ -36,6 +36,14 @@ From left to right: the boss, the biggest of them, then the creatures for Explor
 - The mod checks which subagents are running whenever one starts, whenever a turn ends, and every half second while anything is walking. So a creature can arrive or leave up to half a second after its subagent starts or finishes.
 - The strip steps aside while Claude Code is showing a survey, when there are fewer than 4 free rows above the prompt, or when it's under 8 columns wide, too narrow for the boss. It comes back when there's room again.
 
+## Commands
+
+- `/posse` switches the posse on or off. The setting is remembered across sessions.
+- `/posse on` and `/posse off` set it directly.
+- `/posse legend` lists which look goes with which subagent type.
+
+The command runs right away, even while Claude is working and the posse is walking.
+
 ## Requirements
 
 - Claude Code 2.1.289 or newer. The function-hook API this mod uses is in early access and may change between releases.

@@ -13,13 +13,16 @@ export const SPROUT: Headwear = ['....##.##...', '......#.....']
 
 export const BOSS: Look = { color: 0xd77757, headwear: null, isBoss: true }
 
-const BY_TYPE = new Map<string, Look>([
-  ['Explore', { color: 0x61afef, headwear: ANTENNAE, hatColor: 0xf0f0f0 }],
-  ['Plan', { color: 0x98c379, headwear: TOP_HAT, hatColor: 0xe06c75 }],
-  ['general-purpose', { color: 0xc678dd, headwear: PROPELLER, hatColor: 0x56b6c2 }],
-  ['claude', { color: 0xe06c9f, headwear: CROWN, hatColor: 0xe5c07b }],
-  ['fork', { color: 0xf4a582, headwear: HALO, hatColor: 0xffe9a8 }],
-])
+/** The built-in types' looks, with the words `/posse legend` uses for them. */
+export const LEGEND = [
+  { type: 'Explore', look: { color: 0x61afef, headwear: ANTENNAE, hatColor: 0xf0f0f0 }, says: 'blue, with white antennae' },
+  { type: 'Plan', look: { color: 0x98c379, headwear: TOP_HAT, hatColor: 0xe06c75 }, says: 'green, with a red top hat' },
+  { type: 'general-purpose', look: { color: 0xc678dd, headwear: PROPELLER, hatColor: 0x56b6c2 }, says: 'purple, with a cyan propeller cap' },
+  { type: 'claude', look: { color: 0xe06c9f, headwear: CROWN, hatColor: 0xe5c07b }, says: 'pink, with a gold crown' },
+  { type: 'fork', look: { color: 0xf4a582, headwear: HALO, hatColor: 0xffe9a8 }, says: 'peach, with a pale yellow halo' },
+] as const satisfies readonly { type: string; look: Look; says: string }[]
+
+const BY_TYPE = new Map<string, Look>(LEGEND.map(({ type, look }) => [type, look]))
 
 // Bodies and hats for the other types, two lists that share no color.
 const COLORS = [0xb5cc5c, 0xb39ddb, 0xd19a66, 0xa0a8b7, 0x7ec699]
@@ -50,4 +53,14 @@ export function hash(text: string): number {
   }
 
   return h >>> 0
+}
+
+/** Who wears what, as `/posse legend` prints it. */
+export function legendText(): string {
+  return [
+    'The posse:',
+    '- **the boss** (the main turn): orange, bareheaded, and the biggest',
+    ...LEGEND.map(({ type, says }) => `- **${type}**: ${says}`),
+    "- **any other type**: ears, horns, a mohawk or a sprout, in colors picked from the type's name",
+  ].join('\n')
 }
