@@ -112,7 +112,7 @@ export function rasterCells(columns: number, figures: readonly Figure[]): string
 const BASE64 =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-function toBase64(bytes: Uint8Array): string {
+export function toBase64(bytes: Uint8Array): string {
   const out: string[] = []
   for (let i = 0; i < bytes.length; i += 3) {
     const b0 = bytes[i] ?? 0

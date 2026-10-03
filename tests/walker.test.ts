@@ -1,0 +1,94 @@
+import { describe, expect, test } from 'claude-code/testing'
+
+import {
+  BLINK_EVERY,
+  BLINK_TICKS,
+  BUMP_TICKS,
+  PAUSE_TICKS,
+  SPACING,
+  createWalker,
+  freeSpot,
+  lastX,
+  pose,
+  step,
+} from '../hooks/walker'
+
+describe('walker', () => {
+  test('walks to the right edge, looks at you, and turns back', () => {
+    const walker = createWalker()
+    const end = lastX(20)
+    for (let i = 0; i < end; i++) step(walker, 20)
+    expect(walker.x).toBe(end)
+    expect(pose(walker).facing).toBe(0)
+
+    for (let i = 0; i < PAUSE_TICKS; i++) step(walker, 20)
+    expect(walker.heading).toBe(-1)
+    step(walker, 20)
+    expect(walker.x).toBe(end - 1)
+    expect(pose(walker).facing).toBe(-1)
+  })
+
+  test('turns at the left edge too', () => {
+    const walker = createWalker(2, -1)
+    step(walker, 20)
+    step(walker, 20)
+    expect(walker.x).toBe(0)
+    expect(pose(walker)).toMatchObject({ facing: 0, step: 0 })
+
+    for (let i = 0; i < PAUSE_TICKS; i++) step(walker, 20)
+    expect(walker.heading).toBe(1)
+  })
+
+  test('walks at its own speed', () => {
+    const slow = createWalker(0, 1, 0.5)
+    const fast = createWalker(0, 1, 1.5)
+    for (let i = 0; i < 4; i++) {
+      step(slow, 40)
+      step(fast, 40)
+    }
+    expect(slow.x).toBe(2)
+    expect(fast.x).toBe(6)
+  })
+
+  test('lifts a different pair of legs every two pixels', () => {
+    const walker = createWalker(0, 1)
+    const steps = Array.from({ length: 6 }, () => {
+      step(walker, 40)
+      return pose(walker).step
+    })
+    expect(steps).toEqual([1, 2, 2, 1, 1, 2])
+  })
+
+  test('blinks for a moment every few seconds', () => {
+    const walker = createWalker()
+    let blinks = 0
+    for (let i = 0; i < BLINK_EVERY; i++) {
+      step(walker, 200)
+      if (pose(walker).isBlinking) blinks += 1
+    }
+    expect(blinks).toBe(BLINK_TICKS)
+  })
+
+  test('two that meet bump, pause, and turn around', () => {
+    const left = createWalker(0, 1)
+    const right = createWalker(40, -1)
+    let bumped = false
+    for (let i = 0; i < 40; i++) {
+      step(left, 60, [right])
+      step(right, 60, [left])
+      expect(right.x - left.x).toBeGreaterThanOrEqual(SPACING)
+      bumped ||= left.pause === BUMP_TICKS
+    }
+    expect(bumped).toBe(true)
+    expect(left.heading).toBe(-1)
+    expect(right.heading).toBe(1)
+  })
+
+  test('a newcomer starts as far from everyone as it can', () => {
+    expect(freeSpot(20, [])).toBe(0)
+    expect(freeSpot(20, [createWalker(0)])).toBe(lastX(20))
+    expect(freeSpot(20, [createWalker(0), createWalker(lastX(20))])).toBe(
+      lastX(20) / 2,
+    )
+  })
+})
