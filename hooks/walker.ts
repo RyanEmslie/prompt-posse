@@ -6,8 +6,8 @@ export const TICK_MS = 50
 export const PAUSE_TICKS = Math.round(800 / TICK_MS)
 // Ticks spent standing still after bumping into another creature.
 export const BUMP_TICKS = Math.round(200 / TICK_MS)
-const BLINK_EVERY = Math.round(3200 / TICK_MS)
-const BLINK_TICKS = Math.round(160 / TICK_MS)
+export const BLINK_EVERY = Math.round(3200 / TICK_MS)
+export const BLINK_TICKS = Math.round(160 / TICK_MS)
 // The closest two creatures come: a sprite and a column apart, so no cell
 // holds both.
 export const SPACING = SPRITE_WIDTH + 2

@@ -3,6 +3,7 @@ import type { AgentInfo, On } from 'claude-code'
 
 import { ANTENNAE, BOSS, lookFor } from '../hooks/looks'
 import { SPRITE_ROWS, glyphRows } from '../hooks/sprite'
+import { posseSvg } from '../hooks/svg'
 import {
   PAUSE_TICKS,
   SPACING,
@@ -13,10 +14,13 @@ import {
   step,
 } from '../hooks/walker'
 
-const band = (isWorking: boolean) => ({
+const band = <S extends 'terminal' | 'desktop' = 'terminal'>(
+  isWorking: boolean,
+  surface: S = 'terminal' as S,
+) => ({
   component: 'AbovePrompt' as const,
   plugin: 'prompt-posse',
-  surface: 'terminal' as const,
+  surface,
   requestId: 'band',
   props: {
     hasSurvey: false,
@@ -197,5 +201,64 @@ describe('band', () => {
     expect(blits).toHaveLength(finished)
     await ui.redraw(band(false).props)
     expect(await ui.find({ type: 'Raster' })).toBeUndefined()
+  })
+})
+
+const animations = (svg: string) => svg.split('<animateTransform').length - 1
+
+describe('desktop', () => {
+  test('draws the boss as one self-animating SVG', async ($, on) => {
+    mock.clock(on)
+    engine(on)
+    const ui = await $.ui.mount(band(true, 'desktop'))
+    expect(await ui.find({ type: 'Raster' })).toBeUndefined()
+
+    const svg = await ui.find({ type: 'Svg' })
+    expect(svg?.props).toMatchObject({
+      alt: 'The boss walking above the prompt',
+      isInteractive: true,
+    })
+    const source = String(svg?.props.source)
+    expect(source.startsWith('<svg')).toBe(true)
+    expect(animations(source)).toBe(1)
+    expect(source).toContain('#d77757')
+  })
+
+  test('a background subagent walks on after the turn ends', async ($, on) => {
+    const clock = mock.clock(on)
+    const agents = [agent('a1', 'Explore')]
+    engine(on, agents)
+    const ui = await $.ui.mount(band(true, 'desktop'))
+
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await clock.advance(TICK_MS * 10)
+    await $.turn.complete(TURN_END)
+    await ui.redraw(band(false, 'desktop').props)
+
+    const svg = await ui.find({ type: 'Svg' })
+    expect(svg?.props.alt).toBe('1 subagent creature walking above the prompt')
+    expect(animations(String(svg?.props.source))).toBe(1)
+    expect(String(svg?.props.source)).toContain('#61afef')
+
+    agents.length = 0
+    await clock.advance(TICK_MS * 10)
+    await ui.redraw(band(false, 'desktop').props)
+    expect(await ui.find({ type: 'Svg' })).toBeUndefined()
+  })
+
+  test('a crowd stays well under the SVG size limit', () => {
+    const strides = Array.from({ length: 12 }, (_, i) => ({
+      x: i * 14,
+      heading: 1 as const,
+      speed: 1,
+      elapsedMs: 0,
+      look: lookFor(`type-${i}`),
+    }))
+    expect(posseSvg(120, strides).length).toBeLessThan(131072 / 2)
+  })
+
+  test('a strip too narrow to walk in stands still', () => {
+    const still = { x: 0, heading: 1 as const, speed: 1, elapsedMs: 0, look: BOSS }
+    expect(animations(posseSvg(6, [still]))).toBe(0)
   })
 })

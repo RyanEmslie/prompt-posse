@@ -3,6 +3,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 import { BOSS, hash, lookFor } from './looks'
 import { SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
+import { posseSvg } from './svg'
 import { TICK_MS, createWalker, freeSpot, lastX, pose, step } from './walker'
 import type { Walker } from './walker'
 
@@ -17,7 +18,12 @@ const BAND_ROWS = SPRITE_ROWS + 1
 const LIST_EVERY = 10
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
 
-type Creature = { walker: Walker; look: Look }
+type Creature = {
+  walker: Walker
+  look: Look
+  /** When it started walking: the desktop's animation runs from it. */
+  since: number
+}
 
 type Walk = {
   boss: Creature
@@ -25,7 +31,12 @@ type Walk = {
   subagents: Map<string, Creature>
   isMainTurn: boolean
   /** The band while it shows creatures, so the timer knows where to repaint. */
-  band: { requestId: string; columns: number; hasBoss: boolean } | null
+  band: {
+    requestId: string
+    columns: number
+    hasBoss: boolean
+    surface: 'terminal' | 'desktop'
+  } | null
   timer: Timer | null
   ticks: number
 }
@@ -40,6 +51,16 @@ const frame = (columns: number, creatures: readonly Creature[]) =>
     columns,
     creatures.map(({ walker, look }) => ({ x: walker.x, pose: pose(walker), look })),
   )
+
+/** What the desktop's SVG shows, for a reader that cannot see it. */
+function describe(hasBoss: boolean, subagents: number) {
+  const posse = `${subagents} subagent creature${subagents === 1 ? '' : 's'}`
+  const who = [hasBoss ? 'The boss' : '', subagents > 0 ? posse : '']
+    .filter(Boolean)
+    .join(' and ')
+
+  return `${who} walking above the prompt`
+}
 
 function stop(walk: Walk) {
   walk.timer?.cancel()
@@ -66,6 +87,7 @@ async function list($: EngineInterface, walk: Walk) {
   }
 
   const columns = walk.band?.columns ?? 80
+  const now = await $.clock.now()
   for (const agent of active.values()) {
     if (walk.subagents.has(agent.id)) {
       continue
@@ -77,6 +99,7 @@ async function list($: EngineInterface, walk: Walk) {
     walk.subagents.set(agent.id, {
       walker: createWalker(x, heading, speed),
       look: lookFor(agent.type),
+      since: now,
     })
     isChanged = true
   }
@@ -96,7 +119,8 @@ function tick($: EngineInterface, walk: Walk) {
   if (walk.ticks % LIST_EVERY === 0) {
     void list($, walk)
   }
-  if (walk.band === null) {
+  // The desktop's SVG animates itself; only the terminal is repainted.
+  if (walk.band === null || walk.band.surface !== 'terminal') {
     return
   }
 
@@ -111,7 +135,7 @@ function tick($: EngineInterface, walk: Walk) {
 
 export const register: Register = on => {
   const walk: Walk = {
-    boss: { walker: createWalker(), look: BOSS },
+    boss: { walker: createWalker(), look: BOSS, since: 0 },
     subagents: new Map(),
     isMainTurn: false,
     band: null,
@@ -119,8 +143,9 @@ export const register: Register = on => {
     ticks: 0,
   }
 
-  on('turn.start', ($, e, next) => {
+  on('turn.start', async ($, e, next) => {
     walk.isMainTurn = true
+    walk.boss.since = await $.clock.now()
     wake($, walk)
     $.ui.invalidate('ui.render')
 
@@ -151,12 +176,14 @@ export const register: Register = on => {
     return result
   })
 
-  on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => {
-    const columns = Math.min(e.props.bodyColumns + MARK_COLUMNS, 512)
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    // Only the terminal's band reaches under the engine's columns.
+    const reach = e.surface === 'terminal' ? MARK_COLUMNS : 0
+    const columns = Math.min(e.props.bodyColumns + reach, 512)
     const hasBoss = e.props.isWorking
 
     if (
-      e.surface !== 'terminal' ||
+      (e.surface !== 'terminal' && e.surface !== 'desktop') ||
       (!hasBoss && walk.subagents.size === 0) ||
       e.props.hasSurvey ||
       e.props.maxRows < BAND_ROWS ||
@@ -170,7 +197,28 @@ export const register: Register = on => {
     for (const { walker } of creatures) {
       walker.x = Math.min(walker.x, lastX(columns))
     }
-    walk.band = { requestId: e.requestId, columns, hasBoss }
+    walk.band = { requestId: e.requestId, columns, hasBoss, surface: e.surface }
+
+    if (e.surface === 'desktop') {
+      const now = await $.clock.now()
+      const strides = creatures.map(({ walker, look, since }) => ({
+        x: walker.x,
+        heading: walker.heading,
+        speed: walker.speed,
+        elapsedMs: now - since,
+        look,
+      }))
+      const { Svg } = $.ui.resolve(e)
+
+      return (
+        <Svg
+          source={posseSvg(columns, strides)}
+          alt={describe(hasBoss, walk.subagents.size)}
+          isInteractive
+        />
+      )
+    }
+
     const { Box, Raster, Text } = $.ui.resolve(e)
 
     // Each row is placed absolutely so it can reach under the engine's

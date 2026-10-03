@@ -44,7 +44,7 @@ const TERMINAL_DEFAULT = 0x01000000
 
 type Cell = { glyph: string; color: number }
 
-function spritePixels(pose: Pose, headwear: Headwear | null): readonly string[] {
+export function spritePixels(pose: Pose, headwear: Headwear | null): readonly string[] {
   const eyes = pose.isBlinking ? BODY : EYES[pose.facing]
   const [crown, brim] = headwear ?? BARE
 
