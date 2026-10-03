@@ -4,6 +4,8 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-10-03
+
 ### Fixed
 - Creatures now appear even when Claude Code is slow to report which agents are running. Before 0.4.1's fix, a check slower than half a second was always overtaken by the next one, and none were applied.
 - When checking for agents keeps failing while nothing is walking, the mod now gives up after three tries instead of retrying every half second forever. Only the first failure in a row goes to the debug log.
