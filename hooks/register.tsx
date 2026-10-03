@@ -23,12 +23,14 @@ const ACTIVE = new Set(['pending', 'running', 'waiting'])
 export const PANE_STALE_MS = 10 * 60_000
 // Where `/posse` remembers being switched off, across sessions.
 const STORE_KEY = 'isOn'
-const USAGE =
-  '`/posse` switches the posse on or off. `/posse on` and `/posse off` set it, and `/posse legend` shows who wears what.'
+const OPTIONS =
+  '`/posse` to switch the posse on or off, `/posse on` or `/posse off` to pick one, or `/posse legend` to see which creature is which.'
 
 type Creature = {
   walker: Walker
   look: Look
+  /** The kind of agent it walks for (`Explore`, `Plan`, ...); the boss's is empty. */
+  type: string
   /** When it started walking: the desktop's animation runs from it. */
   since: number
 }
@@ -68,15 +70,23 @@ const frame = (columns: number, creatures: readonly Creature[]) =>
     creatures.map(({ walker, look }) => ({ x: walker.x, pose: pose(walker), look })),
   )
 
-/** What the desktop's SVG shows, for a reader that cannot see it. */
-function describe(hasBoss: boolean, subagents: number) {
-  const posse = `${subagents} subagent creature${subagents === 1 ? '' : 's'}`
-  const who = [hasBoss ? 'The boss' : '', subagents > 0 ? posse : '']
+/** What the desktop's SVG shows, for a reader that can't see it. */
+function describe(hasBoss: boolean, types: readonly string[]) {
+  const agents = `${types.length} agent${types.length === 1 ? '' : 's'}`
+  const who = [hasBoss ? 'The boss' : '', types.length > 0 ? agents : '']
     .filter(Boolean)
     .join(' and ')
+  const kinds =
+    types.length > 1
+      ? `${types.slice(0, -1).join(', ')} and ${types.at(-1)}`
+      : (types[0] ?? '')
 
-  return `${who} walking above the prompt`
+  return `${who} walking above the prompt${kinds === '' ? '' : `: ${kinds}`}`
 }
+
+/** An error's message, whatever was thrown. */
+const reasonOf = (error: unknown) =>
+  error instanceof Error ? error.message : typeof error === 'string' ? error : JSON.stringify(error)
 
 function stop(walk: Walk) {
   walk.timer?.cancel()
@@ -92,7 +102,10 @@ function wake($: EngineInterface, walk: Walk) {
 /** Lists the agents again, and keeps the timer going to retry if that fails. */
 function relist($: EngineInterface, walk: Walk) {
   void list($, walk).catch((error: unknown) => {
-    $.ui.log(`prompt-posse: listing agents failed: ${String(error)}`, { to: 'debug' })
+    $.ui.log(
+      `prompt-posse: couldn't list the session's agents (${reasonOf(error)}); trying again in half a second`,
+      { to: 'debug' },
+    )
     wake($, walk)
   })
 }
@@ -149,6 +162,7 @@ async function list($: EngineInterface, walk: Walk) {
     walk.subagents.set(agent.id, {
       walker: createWalker(x, heading, speed, SPRITE_WIDTH),
       look: lookFor(agent.type),
+      type: agent.type,
       since: now,
     })
     isChanged = true
@@ -185,7 +199,7 @@ function tick($: EngineInterface, walk: Walk) {
 
 export const register: Register = on => {
   const walk: Walk = {
-    boss: { walker: createWalker(0, 1, 1, BOSS_WIDTH), look: BOSS, since: 0 },
+    boss: { walker: createWalker(0, 1, 1, BOSS_WIDTH), look: BOSS, type: '', since: 0 },
     subagents: new Map(),
     isMainTurn: false,
     isOn: true,
@@ -201,7 +215,7 @@ export const register: Register = on => {
     walk.isOn = (await $.store.get(STORE_KEY)) !== false
     await $.command.register({
       name: 'posse',
-      description: 'Switch the posse above the prompt on or off, or show who wears what',
+      description: "Show or hide the creatures that walk above the prompt while Claude and its agents work, or see who's who",
       argumentHint: '[on|off|legend]',
       immediate: true,
     })
@@ -215,7 +229,7 @@ export const register: Register = on => {
       return { text: legendText() }
     }
     if (arg !== '' && arg !== 'on' && arg !== 'off') {
-      return { text: USAGE }
+      return { text: `\`${e.args.trim()}\` isn't a /posse option. Use ${OPTIONS}` }
     }
 
     walk.isOn = arg === '' ? !walk.isOn : arg === 'on'
@@ -232,8 +246,8 @@ export const register: Register = on => {
 
     return {
       text: walk.isOn
-        ? 'The posse is on. It walks above the prompt while Claude works.'
-        : 'The posse is off, here and in new sessions. Run `/posse` to bring it back.',
+        ? 'The posse is on. The boss walks above the prompt while Claude works, with a creature for each agent it starts. It stays on in new sessions.'
+        : 'The posse is off. It stays off in new sessions. Run `/posse` to bring it back.',
     }
   })
 
@@ -325,7 +339,7 @@ export const register: Register = on => {
       return (
         <Svg
           source={posseSvg(columns, strides)}
-          alt={describe(hasBoss, walk.subagents.size)}
+          alt={describe(hasBoss, [...walk.subagents.values()].map(c => c.type))}
           isInteractive
         />
       )

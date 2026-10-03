@@ -25,7 +25,7 @@ describe('/posse', () => {
     expect(blits).toHaveLength(5)
 
     const off = await $.command.run(posse())
-    expect(off.text).toContain('off')
+    expect(off.text).toBe('The posse is off. It stays off in new sessions. Run `/posse` to bring it back.')
     expect(stored.get('isOn')).toBe(false)
     await clock.advance(TICK_MS * 10)
     expect(blits).toHaveLength(5)
@@ -34,7 +34,8 @@ describe('/posse', () => {
     expect(await ui.find({ text: 'engine band' })).toBeDefined()
 
     const back = await $.command.run(posse())
-    expect(back.text).toContain('on')
+    expect(back.text).toContain('The posse is on.')
+    expect(back.text).toContain('It stays on in new sessions.')
     expect(stored.get('isOn')).toBe(true)
     await ui.redraw(band(true, 'terminal').props)
     expect(await ui.find({ type: 'Raster' })).toBeDefined()
@@ -105,11 +106,11 @@ describe('/posse', () => {
     await $.session.start(START)
 
     const { text = '' } = await $.command.run(posse('legend'))
-    expect(text).toContain('the boss')
+    expect(text).toContain('**The boss** is Claude itself')
     for (const { type, says } of LEGEND) {
-      expect(text).toContain(`**${type}**: ${says}`)
+      expect(text).toContain(`\`${type}\` agents: ${says}`)
     }
-    expect(text).toContain('any other type')
+    expect(text).toContain('**Any other agent**')
     expect(stored.has('isOn')).toBe(false)
   })
 
@@ -120,6 +121,7 @@ describe('/posse', () => {
     await $.session.start(START)
 
     const { text = '' } = await $.command.run(posse('dance'))
+    expect(text).toContain("`dance` isn't a /posse option")
     expect(text).toContain('`/posse legend`')
     expect(stored.has('isOn')).toBe(false)
   })

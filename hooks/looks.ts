@@ -13,7 +13,7 @@ export const SPROUT: Headwear = ['....##.##...', '......#.....']
 
 export const BOSS: Look = { color: 0xd77757, headwear: null, isBoss: true }
 
-/** The built-in types' looks, with the words `/posse legend` uses for them. */
+/** The built-in agent kinds' looks, with the words `/posse legend` uses for them. */
 export const LEGEND = [
   { type: 'Explore', look: { color: 0x61afef, headwear: ANTENNAE, hatColor: 0xf0f0f0 }, says: 'blue, with white antennae' },
   { type: 'Plan', look: { color: 0x98c379, headwear: TOP_HAT, hatColor: 0xe06c75 }, says: 'green, with a red top hat' },
@@ -55,12 +55,12 @@ export function hash(text: string): number {
   return h >>> 0
 }
 
-/** Who wears what, as `/posse legend` prints it. */
+/** Which creature is which, as `/posse legend` prints it. */
 export function legendText(): string {
   return [
-    'The posse:',
-    '- **the boss** (the main turn): orange, bareheaded, and the biggest',
-    ...LEGEND.map(({ type, says }) => `- **${type}**: ${says}`),
-    "- **any other type**: ears, horns, a mohawk or a sprout, in colors picked from the type's name",
+    "Who's who in the posse:",
+    '- **The boss** is Claude itself: orange, bareheaded, and bigger than the rest',
+    ...LEGEND.map(({ type, says }) => `- \`${type}\` agents: ${says}`),
+    '- **Any other agent**: ears, horns, a mohawk or a sprout, in colors that stay the same for each kind of agent',
   ].join('\n')
 }

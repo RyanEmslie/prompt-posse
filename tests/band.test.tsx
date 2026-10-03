@@ -226,7 +226,7 @@ describe('terminal band', () => {
       await clock.settle()
       await ui.redraw(band(false, 'desktop').props)
       expect((await ui.find({ type: 'Svg' }))?.props.alt).toBe(
-        'The boss and 2 subagent creatures walking above the prompt',
+        'The boss and 2 agents walking above the prompt: teammate and teammate',
       )
 
       // The mock clock takes at most 10,000 waits an advance: go a minute at a time.
@@ -235,7 +235,7 @@ describe('terminal band', () => {
       }
       await ui.redraw(band(false, 'desktop').props)
       expect((await ui.find({ type: 'Svg' }))?.props.alt).toBe(
-        'The boss and 1 subagent creature walking above the prompt',
+        'The boss and 1 agent walking above the prompt: teammate',
       )
     },
   )

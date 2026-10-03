@@ -39,8 +39,8 @@ From left to right: the boss, the biggest of them, then the creatures for Explor
 ## Commands
 
 - `/posse` switches the posse on or off. The setting is remembered across sessions.
-- `/posse on` and `/posse off` set it directly.
-- `/posse legend` lists which look goes with which subagent type.
+- `/posse on` and `/posse off` pick one.
+- `/posse legend` shows which creature is which.
 
 The command runs right away, even while Claude is working and the posse is walking.
 

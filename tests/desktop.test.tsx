@@ -51,7 +51,7 @@ describe('desktop band', () => {
     await ui.redraw(band(true, 'desktop').props)
 
     const svg = await ui.find({ type: 'Svg' })
-    expect(svg?.props.alt).toBe('The boss and 3 subagent creatures walking above the prompt')
+    expect(svg?.props.alt).toBe('The boss and 3 agents walking above the prompt: Explore, Explore and Explore')
     expect(animations(String(svg?.props.source))).toBe(4)
   })
 
@@ -67,7 +67,7 @@ describe('desktop band', () => {
     await ui.redraw(band(false, 'desktop').props)
 
     const svg = await ui.find({ type: 'Svg' })
-    expect(svg?.props.alt).toBe('The boss and 1 subagent creature walking above the prompt')
+    expect(svg?.props.alt).toBe('The boss and 1 agent walking above the prompt: Explore')
     expect(animations(String(svg?.props.source))).toBe(2)
     expect(String(svg?.props.source)).toContain('#d77757')
     expect(String(svg?.props.source)).toContain('#61afef')
