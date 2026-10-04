@@ -25,9 +25,24 @@ describe('legend', () => {
     expect(row.find(s => s.text === ' Plan a sprite tweak')?.color).toBe(GREEN)
   })
 
-  test('counts the tasks that do not fit', () => {
-    expect(text(80)).toBe('■ Find sprite code  ■ Explore posse hooks  ■ Plan a sprite tweak  +2 more')
-    expect(legendRow(80, ENTRIES).at(-1)).toEqual({ text: '  +2 more', isDim: true })
+  test('cuts the longest tasks short so every one fits', () => {
+    expect(text(80)).toBe(
+      '■ Find sprite…  ■ Explore pos…  ■ Plan a spri…  ■ Search walk…  ■ Plan legend…',
+    )
+    // One column more than that row needs keeps the same cut; one less cuts deeper.
+    expect(text(79)).toBe(text(78))
+    expect(text(77)).not.toBe(text(78))
+  })
+
+  test('cuts only as far as it must', () => {
+    const short = { text: 'Plan', mark: 0xe06c75, color: GREEN }
+    const long = { text: 'Explore every hook file', mark: 0xbcbcbc, color: BLUE }
+    expect(text(26, [short, long])).toBe('■ Plan  ■ Explore every h…')
+  })
+
+  test('counts the tasks that do not fit even when cut short', () => {
+    expect(text(50)).toBe('■ Find spri…  ■ Explore p…  ■ Plan a sp…  +2 more')
+    expect(legendRow(50, ENTRIES).at(-1)).toEqual({ text: '  +2 more', isDim: true })
   })
 
   test('never runs wider than the strip', () => {

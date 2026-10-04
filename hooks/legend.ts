@@ -1,6 +1,7 @@
 // The row under the ground that says what each creature walks for: a mark in
 // its hat color, then its agent's task in its body color, in the order they
-// joined. What doesn't fit is counted at the end.
+// joined. Long tasks are cut short, the longest first, so more of them fit;
+// what doesn't fit even then is counted at the end.
 
 export type Entry = {
   /** The agent's task, as the Agent call described it. */
@@ -17,10 +18,34 @@ export type Segment = { text: string; color?: number; isDim?: boolean }
 const GAP = '  '
 const MARK = '■'
 
+// The fewest characters a task is cut to, so it can still be told apart.
+const MIN_CHARS = 10
+
 const more = (count: number) => `+${count} more`
 
-/** The legend's row, `columns` wide at most: as many entries as fit, then `+N more`. */
+const cut = (text: string, chars: number) =>
+  text.length <= chars ? text : `${text.slice(0, chars - 1)}…`
+
+const widthAt = (entries: readonly Entry[], chars: number) =>
+  entries.reduce((sum, { text }) => sum + MARK.length + 1 + Math.min(text.length, chars), 0) +
+  GAP.length * Math.max(0, entries.length - 1)
+
+/**
+ * The legend's row, `columns` wide at most. Tasks are cut to the most
+ * characters at which every entry fits, but no fewer than `MIN_CHARS`; what
+ * still doesn't fit is counted as `+N more`.
+ */
 export function legendRow(columns: number, entries: readonly Entry[]): Segment[] {
+  let chars = Math.max(0, ...entries.map(({ text }) => text.length))
+  while (chars > MIN_CHARS && widthAt(entries, chars) > columns) {
+    chars -= 1
+  }
+
+  return fit(columns, entries.map(entry => ({ ...entry, text: cut(entry.text, chars) })))
+}
+
+/** As many entries as fit whole, then `+N more`. */
+function fit(columns: number, entries: readonly Entry[]): Segment[] {
   const row: Segment[] = []
   let used = 0
   for (const [i, entry] of entries.entries()) {
