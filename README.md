@@ -114,7 +114,7 @@ To remove it, take its path out of `CLAUDE_CODE_PLUGIN_DIRS` (or stop passing `-
 
 - **Speed:** change `TICK_MS` in `hooks/walker.ts`. Lower is faster.
 - **Looks:** edit `hooks/looks.ts`. Headwear is two text rows of 12 characters, with `#` for a filled pixel. Colors are `0xRRGGBB` values.
-- **Body and legs:** the sprite is in `hooks/sprite.ts`, drawn the same way.
+- **Body and legs:** the sprite is in `hooks/sprite.ts`, drawn the same way, with `%` for a pixel of the shaded side and `o` for an eye. The shade is a darker version of the body color unless the look sets `shadeColor`, and the eyes are near black unless it sets `eyeColor`.
 - **Desktop drawing:** `hooks/svg.ts` turns the same sprites into the animated SVG.
 
 ## Development
