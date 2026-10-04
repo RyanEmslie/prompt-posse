@@ -1,7 +1,8 @@
 // The posse in pixels, drawn two by two in quadrant block characters, three
 // terminal rows tall. A subagent's creature is 12 pixels wide (6 columns, 7
 // at an odd pixel offset) with headwear on its top row; the boss is 16 wide
-// and fills all three rows, the biggest of them.
+// and fills all three rows, the biggest of them. A cell shows two colors at
+// most: its glyph in one, and the other behind it where the cell has no hole.
 
 export const SPRITE_WIDTH = 12
 export const BOSS_WIDTH = 16
@@ -22,6 +23,10 @@ export type Look = {
   headwear: Headwear | null
   /** The headwear's own color, so it stands out from the body. */
   hatColor?: number
+  /** The shaded side's color, for a body drawn with one. */
+  shadeColor?: number
+  /** The eyes' color; without one, eyes are holes in the body. */
+  eyeColor?: number
   isBoss?: boolean
 }
 
@@ -44,19 +49,19 @@ const LEGS = {
   2: '....#....#..',
 } as const
 
-// The boss, in the shape of the logo Claude Code prints at startup.
-const BOSS_BODY = '..############..'
-const BOSS_ARMS = '################'
+// The boss, after Claude Code's mascot: a block with a shaded right side
+// (`%`), dark eyes (`o`) and four short legs.
+const BOSS_BODY = '..##########%%..'
+const BOSS_ARMS = '############%%%%'
 const BOSS_EYES = {
-  [-1]: '..#.######.###..',
-  0: '..##.######.##..',
-  1: '..###.######.#..',
+  [-1]: '..o######o##%%..',
+  0: '..#o######o#%%..',
+  1: '..##o######o%%..',
 } as const
-const BOSS_LEGS = '...#.#....#.#...'
-const BOSS_FEET = {
-  0: BOSS_LEGS,
-  1: '...#......#.....',
-  2: '.....#......#...',
+const BOSS_LEGS = {
+  0: '...#..#..#..%...',
+  1: '...#.....#......',
+  2: '......#.....%...',
 } as const
 
 // Indexed by the filled quadrants: top-left 1, top-right 2, bottom-left 4,
@@ -67,13 +72,16 @@ const PIXEL_ROWS = SPRITE_ROWS * 2
 const EMPTY = -1
 const TERMINAL_DEFAULT = 0x01000000
 
-type Cell = { glyph: string; color: number }
+type Cell = { glyph: string; color: number; background: number }
 
-/** A creature's rows of pixels: `#` its body, `+` its headwear, `.` neither. */
+/**
+ * A creature's rows of pixels: `#` its body, `+` its headwear, `%` its shaded
+ * side, `o` its eyes, `.` none of them.
+ */
 export function spritePixels(pose: Pose, look: Look): readonly string[] {
   if (look.isBoss) {
     const eyes = pose.isBlinking ? BOSS_BODY : BOSS_EYES[pose.facing]
-    return [BOSS_BODY, eyes, BOSS_ARMS, BOSS_BODY, BOSS_LEGS, BOSS_FEET[pose.step]]
+    return [BOSS_BODY, eyes, BOSS_ARMS, BOSS_BODY, BOSS_BODY, BOSS_LEGS[pose.step]]
   }
 
   const eyes = pose.isBlinking ? BODY : EYES[pose.facing]
@@ -85,6 +93,8 @@ export function spritePixels(pose: Pose, look: Look): readonly string[] {
 export function pixelColor(pixel: string | undefined, look: Look): number | null {
   if (pixel === '#') return look.color
   if (pixel === '+') return look.hatColor ?? look.color
+  if (pixel === '%') return look.shadeColor ?? look.color
+  if (pixel === 'o') return look.eyeColor ?? null
   return null
 }
 
@@ -113,14 +123,28 @@ function paint(columns: number, figures: readonly Figure[]): Cell[][] {
     const row: Cell[] = []
     for (let cx = 0; cx < columns; cx++) {
       const quadrants = [top[cx * 2], top[cx * 2 + 1], bottom[cx * 2], bottom[cx * 2 + 1]]
+      // The glyph takes the color most of the cell is. A cell with no hole
+      // shows its next color behind the glyph; one with a hole shows the
+      // terminal there instead, and paints all its pixels in the glyph's
+      // color. A cell can't show a third color.
+      const counts = new Map<number, number>()
+      for (const color of quadrants) {
+        if (color !== undefined && color !== EMPTY) {
+          counts.set(color, (counts.get(color) ?? 0) + 1)
+        }
+      }
+      const [color = TERMINAL_DEFAULT, behind] = [...counts.keys()].sort(
+        (a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0),
+      )
+      const hasHole = quadrants.includes(EMPTY)
+      const background = hasHole || behind === undefined ? TERMINAL_DEFAULT : behind
       let bits = 0
-      quadrants.forEach((color, i) => {
-        if (color !== EMPTY) {
+      quadrants.forEach((pixel, i) => {
+        if (pixel !== EMPTY && (hasHole || pixel === color)) {
           bits |= 1 << i
         }
       })
-      const color = quadrants.find(c => c !== EMPTY) ?? TERMINAL_DEFAULT
-      row.push({ glyph: QUADRANTS[bits] ?? ' ', color })
+      row.push({ glyph: QUADRANTS[bits] ?? ' ', color, background })
     }
     cells.push(row)
   }
@@ -133,15 +157,15 @@ export function glyphRows(columns: number, figures: readonly Figure[]): string[]
   return paint(columns, figures).map(row => row.map(cell => cell.glyph).join(''))
 }
 
-/** The figures packed as a Raster's `cells`, on the terminal's own background. */
+/** The figures packed as a Raster's `cells`, on the terminal's own background where they leave a hole. */
 export function rasterCells(columns: number, figures: readonly Figure[]): string {
   const cells = paint(columns, figures).flat()
   const view = new DataView(new ArrayBuffer(cells.length * 12))
 
-  cells.forEach(({ glyph, color }, i) => {
+  cells.forEach(({ glyph, color, background }, i) => {
     view.setUint32(i * 12, glyph.codePointAt(0) ?? 0x20, true)
     view.setUint32(i * 12 + 4, color, true)
-    view.setUint32(i * 12 + 8, TERMINAL_DEFAULT, true)
+    view.setUint32(i * 12 + 8, background, true)
   })
 
   return toBase64(new Uint8Array(view.buffer))

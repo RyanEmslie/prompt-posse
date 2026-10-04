@@ -4,7 +4,7 @@
 // own, so nothing is sent per frame. Their phase comes from how long each
 // creature has been walking, so a redraw picks up where the last one was.
 
-import { SPRITE_ROWS, spriteWidth, spritePixels } from './sprite'
+import { SPRITE_ROWS, pixelColor, spriteWidth, spritePixels } from './sprite'
 import type { Look, Pose } from './sprite'
 import { BLINK_EVERY, BLINK_TICKS, PAUSE_TICKS, TICK_MS, lastX } from './walker'
 
@@ -59,13 +59,16 @@ function creature(columns: number, stride: Stride): string {
   const { look } = stride
   const rowsFor = (pose: Partial<Pose>) => spritePixels({ ...STANDING, ...pose }, look)
   const standing = rowsFor({})
-  const hat = hex(look.hatColor ?? look.color)
 
-  // Body pixels in the creature's fill, headwear in its own color.
+  // Body pixels in the creature's fill; headwear, shade and eyes in their own colors.
   const draw = (rows: readonly (readonly [string, number])[]) => {
     const body = rows.map(([row, py]) => rects(row, py, '#')).join('')
-    const worn = rows.map(([row, py]) => rects(row, py, '+')).join('')
-    return worn === '' ? body : `${body}<g fill="${hat}">${worn}</g>`
+    const rest = ['+', '%', 'o'].map(pixel => {
+      const drawn = rows.map(([row, py]) => rects(row, py, pixel)).join('')
+      const color = pixelColor(pixel, look)
+      return drawn === '' || color === null ? '' : `<g fill="${hex(color)}">${drawn}</g>`
+    })
+    return body + rest.join('')
   }
 
   // Which rows change with the eyes and with the legs; the rest stay put.
@@ -86,7 +89,7 @@ function creature(columns: number, stride: Stride): string {
   const legs = (step: Pose['step']) =>
     draw(legRows.map(py => [rowsFor({ step })[py] ?? '', py] as const))
 
-  // Eyes are holes in the body; a blink fills them for a moment.
+  // Eyes are holes in the body, or the boss's dark pixels; a blink covers them for a moment.
   const blinkDur = seconds(BLINK_EVERY * TICK_MS)
   const blinkAt = keyTimes(0, (BLINK_EVERY - BLINK_TICKS) / BLINK_EVERY)
   const eyes = (facing: Pose['facing']) => {

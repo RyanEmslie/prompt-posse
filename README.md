@@ -13,7 +13,7 @@ The whole lineup, as text:
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 ```
 
-From left to right: the boss, the biggest of them, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents. The boss is the shape of the logo Claude Code shows at startup.
+From left to right: the boss, the biggest of them, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents. The boss is drawn after Claude Code's mascot, with a shaded right side and dark eyes.
 
 ## What it does
 
@@ -22,7 +22,7 @@ From left to right: the boss, the biggest of them, then the creatures for Explor
 
   | Subagent type | Headwear | Body | Headwear color |
   | --- | --- | --- | --- |
-  | main turn (the boss) | none; bigger than everyone else | orange | — |
+  | main turn (the boss) | none; bigger than everyone else | orange, with a darker right side and dark eyes | — |
   | Explore | antennae | blue | white |
   | Plan | top hat | green | red |
   | general-purpose | propeller cap | purple | cyan |

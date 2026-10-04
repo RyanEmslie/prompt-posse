@@ -63,8 +63,14 @@ describe('desktop svg', () => {
 
   test('draws each run of pixels as one rect, two units tall', () => {
     const svg = posseSvg(COLUMNS, [stride(0, 1)])
-    expect(svg).toContain('<rect x="0" y="4" width="16" height="2"/>')
-    expect(svg).toContain('<rect x="2" y="0" width="12" height="2"/>')
+    expect(svg).toContain('<rect x="0" y="4" width="12" height="2"/>')
+    expect(svg).toContain('<rect x="2" y="0" width="10" height="2"/>')
+  })
+
+  test("draws the boss's shaded side and eyes in their own colors", () => {
+    const svg = posseSvg(COLUMNS, [stride(0, 1)])
+    expect(svg).toContain(`<g fill="${hex(BOSS.shadeColor)}"><rect x="12" y="0" width="2" height="2"/>`)
+    expect(svg).toContain(`<g fill="${hex(BOSS.eyeColor)}">`)
   })
 
   test('draws headwear in its own color, apart from the body', () => {

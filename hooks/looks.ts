@@ -11,7 +11,13 @@ export const HORNS: Headwear = ['.#........#.', '..#......#..']
 export const MOHAWK: Headwear = ['.....##.....', '....####....']
 export const SPROUT: Headwear = ['....##.##...', '......#.....']
 
-export const BOSS: Look = { color: 0xd77757, headwear: null, isBoss: true }
+export const BOSS: Look = {
+  color: 0xd77757,
+  shadeColor: 0xb05a3e,
+  eyeColor: 0x1f1e1d,
+  headwear: null,
+  isBoss: true,
+}
 
 /** The built-in agent kinds' looks, with the words `/posse legend` uses for them. */
 export const LEGEND = [

@@ -9,9 +9,9 @@ const TERMINAL_DEFAULT = 0x01000000
 const SMALL = { color: BOSS.color, headwear: null }
 
 describe('sprite', () => {
-  test('the boss stands as the startup logo, the biggest of the posse', () => {
+  test('the boss stands as the mascot, the biggest of the posse', () => {
     const rows = glyphRows(9, [{ x: 1, pose: STANDING, look: BOSS }])
-    expect(rows).toEqual([' ▐▛███▜▌ ', '▝▜█████▛▘', '  ▌▌ ▐▐  '])
+    expect(rows).toEqual([' ▐▜██▛▌▌ ', '▝▜████▌▛▘', ' ▝▛▜▀▛▜▘ '])
     expect(spriteWidth(BOSS)).toBe(BOSS_WIDTH)
     expect(BOSS_WIDTH).toBeGreaterThan(SPRITE_WIDTH)
   })
@@ -19,8 +19,8 @@ describe('sprite', () => {
   test('the boss lifts alternate legs as he walks', () => {
     const at = (step: 1 | 2) =>
       glyphRows(9, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: BOSS }])
-    expect(at(1)[2]).toBe('  ▌▘ ▐▝  ')
-    expect(at(2)[2]).toBe('  ▘▌ ▝▐  ')
+    expect(at(1)[2]).toBe(' ▝▛▀▀▛▀▘ ')
+    expect(at(2)[2]).toBe(' ▝▀▜▀▀▜▘ ')
   })
 
   test('a subagent creature stands on four legs below its headwear row', () => {
@@ -51,8 +51,8 @@ describe('sprite', () => {
 })
 
 describe('raster cells', () => {
-  test('pack each glyph in orange on the terminal background', () => {
-    const figures = [{ x: 1, pose: STANDING, look: BOSS }]
+  test('pack each glyph in its color on the terminal background', () => {
+    const figures = [{ x: 1, pose: STANDING, look: SMALL }]
     const cells = decodeCells(rasterCells(9, figures))
     expect(cells).toHaveLength(9 * 3)
 
@@ -62,6 +62,20 @@ describe('raster cells', () => {
       expect(cell.bg).toBe(TERMINAL_DEFAULT)
       expect(cell.fg).toBe(cell.glyph === ' ' ? TERMINAL_DEFAULT : BOSS.color)
     }
+  })
+
+  test("the boss's shade and dark eyes show behind the glyph where a cell has no hole", () => {
+    const cells = decodeCells(rasterCells(9, [{ x: 1, pose: STANDING, look: BOSS }]))
+    const colors = [BOSS.color, BOSS.shadeColor, BOSS.eyeColor, TERMINAL_DEFAULT]
+    for (const cell of cells) {
+      expect(colors).toContain(cell.fg)
+      expect(colors).toContain(cell.bg)
+    }
+
+    const eyes = cells.filter(cell => cell.bg === BOSS.eyeColor)
+    expect(eyes).toHaveLength(2)
+    for (const cell of eyes) expect(cell.fg).toBe(BOSS.color)
+    expect(cells.some(cell => cell.bg === BOSS.shadeColor)).toBe(true)
   })
 
   test('headwear is drawn in its own color, apart from the body', () => {
