@@ -300,3 +300,40 @@ describe('terminal band', () => {
     )
   })
 })
+
+describe('legend row', () => {
+  const explore = (id: string, description: string) => ({ ...agent(id, 'Explore'), description })
+
+  test('two agents of a kind wear different hats, and the legend names their tasks', async ($, on) => {
+    const clock = mock.clock(on)
+    engine(on, [explore('a1', 'Find sprite code'), explore('a2', 'Explore posse hooks')])
+    const ui = await $.ui.mount(band(true, 'terminal', { bodyColumns: 75 }))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await clock.advance(TICK_MS * LIST_EVERY)
+    await ui.redraw(band(true, 'terminal', { bodyColumns: 75 }).props)
+
+    expect(await ui.find({ type: 'Text', text: 'Find sprite code' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'Explore posse hooks' })).toBeDefined()
+
+    const raster = await ui.find({ type: 'Raster' })
+    const colors = new Set(decodeCells(String(raster?.props.cells)).map(cell => cell.fg))
+    const own = lookFor('Explore').hatColor
+    expect(colors.has(own)).toBe(true)
+    const hats = [...colors].filter(
+      color => color !== own && color !== BOSS.color && color !== lookFor('Explore').color,
+    )
+    expect(hats.length).toBeGreaterThan(0)
+  })
+
+  test('gives up its row first when the strip is short', async ($, on) => {
+    const clock = mock.clock(on)
+    engine(on, [explore('a1', 'Find sprite code')])
+    const ui = await $.ui.mount(band(true, 'terminal', { maxRows: SPRITE_ROWS + 1 }))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await clock.advance(TICK_MS * LIST_EVERY)
+    await ui.redraw(band(true, 'terminal', { maxRows: SPRITE_ROWS + 1 }).props)
+
+    expect(await ui.find({ type: 'Raster' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: 'Find sprite code' })).toBeUndefined()
+  })
+})

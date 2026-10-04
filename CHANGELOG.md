@@ -4,7 +4,12 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 
 ## [Unreleased]
 
+### Added
+- A legend row under the ground lists each walking subagent's task, with a mark in its creature's hat color and the task in its body color. What doesn't fit is counted as `+N more`.
+- No two creatures on the strip wear the same hat color: when one's color is taken, it wears a spare color instead, so several agents of one type can be told apart.
+
 ### Changed
+- Explore's antennae are light gray instead of white, so they show on a light terminal.
 - The boss is redrawn after Claude Code's mascot: boxier, on four short legs, with a darker side at its back, which flips when it turns, and dark eyes. Its eyes used to be holes, so they showed white on a light terminal. In the terminal, a cell with no hole now shows a second color behind its glyph.
 - Subagent creatures get dark eyes and a darker side at their back too, in a darker shade of their own color. When one stops to face you, it stands square on, with no side showing.
 

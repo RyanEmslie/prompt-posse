@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { BOSS, LEGEND, legendText, lookFor } from '../hooks/looks'
+import { BOSS, LEGEND, SPARE_HATS, hatFor, isNear, legendText, lookFor } from '../hooks/looks'
 
 describe('looks', () => {
   test('every type always gets the same look, and its own headwear', () => {
@@ -33,6 +33,41 @@ describe('looks', () => {
     for (const { type, look } of LEGEND) {
       expect(lookFor(type)).toEqual(look)
     }
-    expect(legendText().split('\n')).toHaveLength(LEGEND.length + 3)
+    expect(legendText().split('\n')).toHaveLength(LEGEND.length + 4)
+  })
+
+  test("an agent's first of a kind wears its own hat; later ones each wear another", () => {
+    expect(hatFor('Explore', [])).toEqual(lookFor('Explore'))
+
+    const worn: number[] = []
+    for (let i = 0; i <= SPARE_HATS.length; i++) {
+      const look = hatFor('Explore', worn)
+      const hat = look.hatColor ?? 0
+      // Its own hat and the spares unlike its body: six that tell apart.
+      if (worn.length < 6) {
+        expect(worn.some(other => isNear(hat, other))).toBe(false)
+      }
+      expect(isNear(hat, look.color)).toBe(false)
+      expect(look.color).toBe(lookFor('Explore').color)
+      expect(look.headwear).toBe(lookFor('Explore').headwear)
+      worn.push(hat)
+    }
+  })
+
+  test('a hat another kind of agent wears is passed over too', () => {
+    const plan = lookFor('Plan').hatColor ?? 0
+    const explore = lookFor('Explore').hatColor ?? 0
+    const second = hatFor('Explore', [explore, plan])
+    expect(isNear(second.hatColor ?? 0, plan)).toBe(false)
+    expect(isNear(second.hatColor ?? 0, explore)).toBe(false)
+  })
+
+  test('a later agent of another kind still gets its own hat', () => {
+    const worn: number[] = []
+    for (const type of ['Explore', 'Explore', 'Plan']) {
+      const look = hatFor(type, worn)
+      worn.push(look.hatColor ?? 0)
+    }
+    expect(worn[2]).toBe(lookFor('Plan').hatColor)
   })
 })

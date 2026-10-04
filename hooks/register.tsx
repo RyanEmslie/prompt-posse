@@ -1,6 +1,7 @@
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import { BOSS, hash, legendText, lookFor } from './looks'
+import { hex, legendRow } from './legend'
+import { BOSS, hash, hatFor, legendText } from './looks'
 import { BOSS_WIDTH, SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
 import { posseSvg } from './svg'
@@ -14,6 +15,9 @@ const GROUND = '▔'
 // under the mark's columns to span the prompt.
 const MARK_COLUMNS = 5
 const BAND_ROWS = SPRITE_ROWS + 1
+// The legend takes a row of its own under the ground, while subagents walk
+// and there's room for it.
+const LEGEND_ROWS = 1
 // How often, in ticks, the session's agents are listed again.
 export const LIST_EVERY = 10
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
@@ -36,6 +40,8 @@ type Creature = {
   look: Look
   /** The kind of agent it walks for (`Explore`, `Plan`, ...); the boss's is empty. */
   type: string
+  /** What its agent is doing, as the Agent call described it; the boss's is empty. */
+  description: string
   /** When it started walking: the desktop's animation runs from it. */
   since: number
 }
@@ -203,10 +209,13 @@ async function list($: EngineInterface, walk: Walk) {
     const x = freeSpot(columns, SPRITE_WIDTH, others)
     const heading = x < lastX(columns) / 2 ? 1 : -1
     const speed = 0.7 + (hash(agent.id) % 6) / 10
+    // A hat color no other creature on the strip wears, so each tells apart.
+    const worn = [...walk.subagents.values()].map(({ look }) => look.hatColor ?? look.color)
     walk.subagents.set(agent.id, {
       walker: createWalker(x, heading, speed, SPRITE_WIDTH),
-      look: lookFor(agent.type),
+      look: hatFor(agent.type, worn),
       type: agent.type,
+      description: agent.description.trim() || agent.type,
       since: now,
     })
     isChanged = true
@@ -243,7 +252,13 @@ function tick($: EngineInterface, walk: Walk) {
 
 export const register: Register = on => {
   const walk: Walk = {
-    boss: { walker: createWalker(0, 1, 1, BOSS_WIDTH), look: BOSS, type: '', since: 0 },
+    boss: {
+      walker: createWalker(0, 1, 1, BOSS_WIDTH),
+      look: BOSS,
+      type: '',
+      description: '',
+      since: 0,
+    },
     subagents: new Map(),
     isMainTurn: false,
     isOn: true,
@@ -376,6 +391,15 @@ export const register: Register = on => {
       wake($, walk)
     }
 
+    // The subagents' marks and tasks, in the order they joined.
+    const entries = [...walk.subagents.values()].map(({ look, description }) => ({
+      text: description,
+      mark: look.hatColor ?? look.color,
+      color: look.color,
+    }))
+    const hasLegend = entries.length > 0 && e.props.maxRows >= BAND_ROWS + LEGEND_ROWS
+    const segments = hasLegend ? legendRow(columns, entries) : []
+
     if (e.surface === 'desktop') {
       const now = await $.clock.now()
       const strides = creatures.map(({ walker, look, since }) => ({
@@ -385,14 +409,29 @@ export const register: Register = on => {
         elapsedMs: now - since,
         look,
       }))
-      const { Svg } = $.ui.resolve(e)
-
-      return (
+      const { Box, Svg, Text } = $.ui.resolve(e)
+      const svg = (
         <Svg
           source={posseSvg(columns, strides)}
           alt={describe(hasBoss, [...walk.subagents.values()].map(c => c.type))}
           isInteractive
         />
+      )
+      if (!hasLegend) {
+        return svg
+      }
+
+      return (
+        <Box flexDirection="column">
+          {svg}
+          <Text wrap="truncate">
+            {segments.map(({ text, color, isDim }) => (
+              <Text color={color === undefined ? undefined : hex(color)} dimColor={isDim}>
+                {text}
+              </Text>
+            ))}
+          </Text>
+        </Box>
       )
     }
 
@@ -419,6 +458,19 @@ export const register: Register = on => {
             </Text>
           </Box>
         </Box>
+        {hasLegend && (
+          <Box height={LEGEND_ROWS}>
+            <Box position="absolute" left={0} width={columns}>
+              <Text wrap="truncate">
+                {segments.map(({ text, color, isDim }) => (
+                  <Text color={color === undefined ? undefined : hex(color)} dimColor={isDim}>
+                    {text}
+                  </Text>
+                ))}
+              </Text>
+            </Box>
+          </Box>
+        )}
       </Box>
     )
   })
