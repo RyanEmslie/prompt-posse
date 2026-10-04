@@ -146,6 +146,41 @@ function creature(columns: number, stride: Stride): string {
   return `<g fill="${fill}">${move}${fixed}${facing}${feet}</g>`
 }
 
+/**
+ * Where a creature walking `stride` is once `stride.elapsedMs` have gone by,
+ * as the SVG draws it: its left edge in pixels, which way it heads, and
+ * whether it is pausing at an edge.
+ */
+export function strideAt(
+  columns: number,
+  stride: Stride,
+): { x: number; heading: 1 | -1; isPausing: boolean } {
+  const end = lastX(columns, spriteWidth(stride.look))
+  if (end === 0) {
+    return { x: 0, heading: stride.heading, isPausing: false }
+  }
+
+  const travelMs = (end / stride.speed) * TICK_MS
+  const pauseMs = PAUSE_TICKS * TICK_MS
+  const periodMs = 2 * (travelMs + pauseMs)
+  const startMs =
+    stride.heading === 1
+      ? (stride.x / end) * travelMs
+      : travelMs + pauseMs + ((end - stride.x) / end) * travelMs
+  const t = (startMs + stride.elapsedMs) % periodMs
+  if (t < travelMs) {
+    return { x: (t / travelMs) * end, heading: 1, isPausing: false }
+  }
+  if (t < travelMs + pauseMs) {
+    return { x: end, heading: -1, isPausing: true }
+  }
+  if (t < 2 * travelMs + pauseMs) {
+    return { x: end - ((t - travelMs - pauseMs) / travelMs) * end, heading: -1, isPausing: false }
+  }
+
+  return { x: 0, heading: 1, isPausing: true }
+}
+
 /** The posse walking on a ground line, `columns` wide at two pixels a column. */
 export function posseSvg(columns: number, strides: readonly Stride[]): string {
   const width = columns * 2

@@ -6,7 +6,7 @@ import type { Work } from './pace'
 import { BOSS, hash, hatFor, legendText } from './looks'
 import { BOSS_WIDTH, SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
-import { posseSvg } from './svg'
+import { posseSvg, strideAt } from './svg'
 import { TICK_MS, createWalker, freeSpot, lastX, pose, step } from './walker'
 import type { Walker } from './walker'
 
@@ -23,6 +23,9 @@ const LEGEND_ROWS = 1
 // How often, in ticks, the session's agents are listed again.
 export const LIST_EVERY = 10
 const ACTIVE = new Set(['pending', 'running', 'waiting'])
+// How much a desktop creature's pace must change before its SVG is drawn
+// again at the new one, so a drift of its pace doesn't redraw it each time.
+const REDRAW_CHANGE = 0.1
 // A teammate in a terminal pane of its own reports running by what it last
 // wrote, which a pane that died leaves standing; after this long its
 // creature is retired until the teammate goes idle or ends.
@@ -65,6 +68,9 @@ type Creature = {
   pace: number
   /** A demo creature's pace, as there is no agent's work to set it. */
   demoPace?: number
+  /** Where the desktop's SVG walks it from: the time it set out from `walker.x`, and how fast. */
+  drawnAt: number
+  drawnSpeed: number
 }
 
 type Walk = {
@@ -102,6 +108,8 @@ type Walk = {
   /** How often the timer fires: every tick on the terminal, only to list agents on the desktop. */
   timerMs: number
   ticks: number
+  /** The walk's own milliseconds, which run as the timer fires; agents' work is timed by them. */
+  clockMs: number
 }
 
 const shown = (walk: Walk, hasBoss: boolean) => [
@@ -263,6 +271,7 @@ function join(walk: Walk, id: string, type: string, description: string, now: nu
   const x = freeSpot(columns, SPRITE_WIDTH, creatures.map(c => c.walker))
   const heading = x < lastX(columns) / 2 ? 1 : -1
   const speed = 0.7 + (hash(id) % 6) / 10
+  const pace = paceFor(rateAt(walk.work.get(id) ?? [], walk.clockMs))
   const worn = creatures.filter(c => c !== walk.boss).map(({ look }) => look.hatColor ?? look.color)
 
   return {
@@ -272,21 +281,62 @@ function join(walk: Walk, id: string, type: string, description: string, now: nu
     description,
     since: now,
     baseSpeed: speed,
-    pace: paceFor(rateAt(walk.work.get(id) ?? [], walk.ticks)),
+    pace,
+    drawnAt: now,
+    drawnSpeed: speed * pace,
   }
 }
 
-/** Sets each subagent's creature walking at the pace its agent's work calls for. */
-function setPaces(walk: Walk) {
+/** Moves each subagent's creature `ms` along toward the pace its agent's work calls for. */
+function setPaces(walk: Walk, ms: number) {
   const set = (creature: Creature, target: number) => {
-    creature.pace = ease(creature.pace, target)
+    creature.pace = ease(creature.pace, target, ms)
     creature.walker.speed = creature.baseSpeed * creature.pace
   }
   for (const [id, creature] of walk.subagents) {
-    set(creature, paceFor(rateAt(walk.work.get(id) ?? [], walk.ticks)))
+    set(creature, paceFor(rateAt(walk.work.get(id) ?? [], walk.clockMs)))
   }
   for (const creature of walk.demo.values()) {
     set(creature, creature.demoPace ?? 1)
+  }
+}
+
+/**
+ * On the desktop, sets out again at its new pace each creature whose pace has
+ * moved far enough from the one its SVG walks at: from where the SVG has it
+ * now, so it doesn't jump. One pausing at an edge waits until it walks on.
+ */
+async function redrawPaces($: EngineInterface, walk: Walk) {
+  const columns = walk.band?.columns
+  if (columns === undefined) {
+    return
+  }
+  const now = await $.clock.now()
+  let isChanged = false
+  for (const creature of [...walk.subagents.values(), ...walk.demo.values()]) {
+    const speed = creature.baseSpeed * creature.pace
+    if (Math.abs(speed - creature.drawnSpeed) <= creature.drawnSpeed * REDRAW_CHANGE) {
+      continue
+    }
+    const { walker, look } = creature
+    const at = strideAt(columns, {
+      x: walker.x,
+      heading: walker.heading,
+      speed: creature.drawnSpeed,
+      elapsedMs: now - creature.drawnAt,
+      look,
+    })
+    if (at.isPausing) {
+      continue
+    }
+    walker.x = Math.round(at.x)
+    walker.heading = at.heading
+    creature.drawnAt = now
+    creature.drawnSpeed = speed
+    isChanged = true
+  }
+  if (isChanged) {
+    $.ui.invalidate('ui.render')
   }
 }
 
@@ -303,16 +353,22 @@ function endDemo($: EngineInterface, walk: Walk) {
 
 function tick($: EngineInterface, walk: Walk) {
   walk.ticks += 1
+  walk.clockMs += walk.timerMs
   if (walk.timerMs !== TICK_MS || walk.ticks % LIST_EVERY === 0) {
     relist($, walk)
   }
-  // The desktop's SVG animates itself; only the terminal is repainted.
-  if (walk.band === null || walk.band.surface !== 'terminal') {
+  if (walk.band === null) {
+    return
+  }
+  setPaces(walk, walk.timerMs)
+  // The desktop's SVG animates itself, drawn again only for a new pace; the
+  // terminal is repainted each tick.
+  if (walk.band.surface !== 'terminal') {
+    void redrawPaces($, walk)
     return
   }
 
   const { requestId, columns, hasBoss } = walk.band
-  setPaces(walk)
   const creatures = shown(walk, hasBoss)
   for (const creature of creatures) {
     const others = creatures.filter(c => c !== creature).map(c => c.walker)
@@ -331,6 +387,8 @@ export const register: Register = on => {
       since: 0,
       baseSpeed: 1,
       pace: 1,
+      drawnAt: 0,
+      drawnSpeed: 1,
     },
     subagents: new Map(),
     work: new Map(),
@@ -348,6 +406,7 @@ export const register: Register = on => {
     timer: null,
     timerMs: TICK_MS,
     ticks: 0,
+    clockMs: 0,
   }
 
   on('session.start', async ($, e, next) => {
@@ -378,7 +437,13 @@ export const register: Register = on => {
       const now = await $.clock.now()
       for (const [i, [type, description, pace]] of DEMO.entries()) {
         const id = `demo-${i}`
-        walk.demo.set(id, { ...join(walk, id, type, description, now), pace, demoPace: pace })
+        const creature = join(walk, id, type, description, now)
+        walk.demo.set(id, {
+          ...creature,
+          pace,
+          demoPace: pace,
+          drawnSpeed: creature.baseSpeed * pace,
+        })
       }
       walk.demoTimer = $.clock.after(DEMO_MS, () => endDemo($, walk))
       wake($, walk)
@@ -416,6 +481,7 @@ export const register: Register = on => {
   on('turn.start', async ($, e, next) => {
     walk.isMainTurn = true
     walk.boss.since = await $.clock.now()
+    walk.boss.drawnAt = walk.boss.since
     wake($, walk)
     $.ui.invalidate('ui.render')
 
@@ -443,7 +509,7 @@ export const register: Register = on => {
     const result = yield* next(e)
     if (e.agentId !== undefined && result.usage !== null && result.usage.output_tokens > 0) {
       const work = walk.work.get(e.agentId) ?? []
-      work.push({ tick: walk.ticks, tokens: result.usage.output_tokens })
+      work.push({ at: walk.clockMs, tokens: result.usage.output_tokens })
       walk.work.set(e.agentId, work)
     }
 
@@ -479,6 +545,7 @@ export const register: Register = on => {
       if (e.props.isWorking && !walk.isMainTurn) {
         walk.isMainTurn = true
         walk.boss.since = await $.clock.now()
+        walk.boss.drawnAt = walk.boss.since
         wake($, walk)
       }
       relist($, walk)
@@ -514,11 +581,11 @@ export const register: Register = on => {
 
     if (e.surface === 'desktop') {
       const now = await $.clock.now()
-      const strides = creatures.map(({ walker, look, since, baseSpeed }) => ({
+      const strides = creatures.map(({ walker, look, drawnAt, drawnSpeed }) => ({
         x: walker.x,
         heading: walker.heading,
-        speed: baseSpeed,
-        elapsedMs: now - since,
+        speed: drawnSpeed,
+        elapsedMs: now - drawnAt,
         look,
       }))
       const { Box, Svg, Text } = $.ui.resolve(e)

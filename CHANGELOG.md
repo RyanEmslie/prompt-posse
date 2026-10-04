@@ -5,7 +5,7 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 ## [Unreleased]
 
 ### Added
-- In the terminal, a subagent's creature walks faster the harder its agent works: from half its own speed when its model wrote nothing in the last 10 seconds, to one and a half times it at 50 output tokens a second or more. It eases into a new pace over about a second. The boss's pace and the desktop app's are unchanged.
+- A subagent's creature walks faster the harder its agent works: from half its own speed when its model wrote nothing in the last 10 seconds, to one and a half times it at 50 output tokens a second or more. It eases into a new pace over about a second. In the desktop app, its SVG is drawn again from where it stands once its pace changes by a tenth or more, so it never jumps. The boss's pace is unchanged.
 - `/posse demo` brings the whole posse out for 20 seconds, without starting any agents: the boss, a creature for each kind of agent, and a second Explore in a spare hat, with the legend naming each one. Run it again to end it sooner.
 - A legend row under the ground lists each walking subagent's task, with a mark in its creature's hat color and the task in its body color. When the row is too narrow, the longest tasks are cut short first, so that more fit. What doesn't fit even then is counted as `+N more`.
 - No two creatures on the strip wear the same hat color: when one's color is taken, it wears a spare color instead, so several agents of one type can be told apart.

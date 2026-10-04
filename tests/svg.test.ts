@@ -2,7 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import { BOSS, lookFor } from '../hooks/looks'
 import { BOSS_WIDTH } from '../hooks/sprite'
-import { posseSvg } from '../hooks/svg'
+import { posseSvg, strideAt } from '../hooks/svg'
 import { BLINK_EVERY, PAUSE_TICKS, TICK_MS, lastX } from '../hooks/walker'
 import { animations, attributesOf, hex } from './kit'
 
@@ -99,4 +99,21 @@ describe('desktop svg', () => {
     }))
     expect(posseSvg(120, crowd).length).toBeLessThan(131072 / 2)
   })
+
+  test('says where a creature is along its walk, as the SVG draws it', () => {
+    expect(strideAt(COLUMNS, stride(0, 1))).toEqual({ x: 0, heading: 1, isPausing: false })
+    expect(strideAt(COLUMNS, stride(0, 1, TRAVEL_MS / 2))).toEqual({ x: END / 2, heading: 1, isPausing: false })
+    expect(strideAt(COLUMNS, stride(0, 1, TRAVEL_MS + PAUSE_MS / 2))).toMatchObject({ x: END, isPausing: true })
+    expect(strideAt(COLUMNS, stride(0, 1, TRAVEL_MS + PAUSE_MS + TRAVEL_MS / 4))).toEqual({
+      x: (END * 3) / 4,
+      heading: -1,
+      isPausing: false,
+    })
+    // From partway along, heading left, at twice the speed.
+    expect(strideAt(COLUMNS, stride(END / 2, -1, TRAVEL_MS / 8, 2))).toEqual({ x: END / 4, heading: -1, isPausing: false })
+    // Arriving at the left edge is where the pause there starts.
+    expect(strideAt(COLUMNS, stride(END / 2, -1, TRAVEL_MS / 4, 2))).toMatchObject({ x: 0, isPausing: true })
+    expect(strideAt(COLUMNS, stride(END, -1, PERIOD_MS))).toEqual(strideAt(COLUMNS, stride(END, -1)))
+  })
 })
+

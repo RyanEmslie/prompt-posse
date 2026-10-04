@@ -79,4 +79,46 @@ describe('desktop band', () => {
     await ui.redraw(band(false, 'desktop').props)
     expect(await ui.find({ type: 'Svg' })).toBeUndefined()
   })
+
+  test("a busy agent's creature is drawn again at a faster pace", async ($, on) => {
+    const clock = mock.clock(on)
+    engine(on, [agent('a1', 'Explore')])
+    on('turn.step', async function* (_$, e) {
+      return {
+        turnId: e.turnId,
+        index: e.index,
+        answer: '',
+        toolUses: [],
+        stopReason: 'end_turn' as const,
+        usage: {
+          input_tokens: 0,
+          output_tokens: 1000,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          model: 'test',
+        },
+      }
+    })
+    const props = { bodyColumns: 200 }
+    const ui = await $.ui.mount(band(true, 'desktop', props))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await clock.advance(TICK_MS * LIST_EVERY * 2)
+
+    // The Explore creature's walk, after the boss's: how long one period takes.
+    const period = async () => {
+      await ui.redraw(band(true, 'desktop', props).props)
+      const source = String((await ui.find({ type: 'Svg' }))?.props.source)
+      const durs = [...source.matchAll(/<animateTransform[^>]*dur="([\d.]+)s"/g)].map(m => Number(m[1]))
+      expect(durs).toHaveLength(2)
+      return durs[1] ?? 0
+    }
+    const idle = await period()
+
+    for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'test', messageCount: 1, agentId: 'a1' })) {
+      // The test's response arrives whole: nothing streams.
+    }
+    await clock.advance(3000)
+    expect(await period()).toBeLessThan(idle * 0.7)
+  })
 })
+
