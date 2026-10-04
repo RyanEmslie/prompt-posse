@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { ANTENNAE, BOSS, lookFor } from '../hooks/looks'
-import { BOSS_WIDTH, SPRITE_WIDTH, glyphRows, rasterCells, spriteWidth, toBase64 } from '../hooks/sprite'
+import { BOSS_WIDTH, SPRITE_WIDTH, glyphRows, rasterCells, spritePixels, spriteWidth, toBase64 } from '../hooks/sprite'
 import { decodeCells } from './kit'
 
 const STANDING = { facing: 0, step: 0, isBlinking: false } as const
@@ -11,7 +11,7 @@ const SMALL = { color: BOSS.color, headwear: null }
 describe('sprite', () => {
   test('the boss stands as the mascot, the biggest of the posse', () => {
     const rows = glyphRows(9, [{ x: 1, pose: STANDING, look: BOSS }])
-    expect(rows).toEqual([' ▐▜██▛▌▌ ', '▝▜████▌▛▘', ' ▝▛▜▀▛▜▘ '])
+    expect(rows).toEqual([' ▐▛██▛▌▌ ', '▝▜████▌▛▘', ' ▝▛▜▀▛▜▘ '])
     expect(spriteWidth(BOSS)).toBe(BOSS_WIDTH)
     expect(BOSS_WIDTH).toBeGreaterThan(SPRITE_WIDTH)
   })
@@ -19,8 +19,16 @@ describe('sprite', () => {
   test('the boss lifts alternate legs as he walks', () => {
     const at = (step: 1 | 2) =>
       glyphRows(9, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: BOSS }])
-    expect(at(1)[2]).toBe(' ▝▛▀▀▛▀▘ ')
-    expect(at(2)[2]).toBe(' ▝▀▜▀▀▜▘ ')
+    expect(at(1)[2]).toBe(' ▝▀▜▀▀▜▘ ')
+    expect(at(2)[2]).toBe(' ▝▛▀▀▛▀▘ ')
+  })
+
+  test("the boss's shaded side stays at its back", () => {
+    const rows = (facing: -1 | 0 | 1) => spritePixels({ ...STANDING, facing }, BOSS)
+    expect(rows(-1)[0]).toBe('..##########%%..')
+    expect(rows(0)[0]).toBe('..##########%%..')
+    expect(rows(1)[0]).toBe('..%%##########..')
+    expect(rows(1)).toEqual(rows(-1).map(row => [...row].reverse().join('')))
   })
 
   test('a subagent creature stands on four legs below its headwear row', () => {
@@ -76,6 +84,16 @@ describe('raster cells', () => {
     expect(eyes).toHaveLength(2)
     for (const cell of eyes) expect(cell.fg).toBe(BOSS.color)
     expect(cells.some(cell => cell.bg === BOSS.shadeColor)).toBe(true)
+  })
+
+  test("both of the boss's eyes show whichever way it faces, at either pixel offset", () => {
+    for (const facing of [-1, 0, 1] as const) {
+      for (const x of [0, 1]) {
+        const cells = decodeCells(rasterCells(9, [{ x, pose: { ...STANDING, facing }, look: BOSS }]))
+        const eyes = cells.filter(cell => cell.fg === BOSS.eyeColor || cell.bg === BOSS.eyeColor)
+        expect(eyes).toHaveLength(2)
+      }
+    }
   })
 
   test('headwear is drawn in its own color, apart from the body', () => {

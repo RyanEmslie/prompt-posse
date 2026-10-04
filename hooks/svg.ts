@@ -71,23 +71,25 @@ function creature(columns: number, stride: Stride): string {
     return body + rest.join('')
   }
 
-  // Which rows change with the eyes and with the legs; the rest stay put.
-  const eyeRows = standing.flatMap((row, py) =>
-    FACINGS.some(facing => rowsFor({ facing })[py] !== row) ||
-    rowsFor({ isBlinking: true })[py] !== row
-      ? [py]
-      : [],
-  )
+  // Which rows change with the legs, and which other rows with the eyes or
+  // the way it faces; the rest stay put. The legs too may differ by facing.
   const legRows = standing.flatMap((row, py) =>
     STEPS.some(step => rowsFor({ step })[py] !== row) ? [py] : [],
+  )
+  const eyeRows = standing.flatMap((row, py) =>
+    !legRows.includes(py) &&
+    (FACINGS.some(facing => rowsFor({ facing })[py] !== row) ||
+      rowsFor({ isBlinking: true })[py] !== row)
+      ? [py]
+      : [],
   )
   const fixed = draw(
     standing.flatMap((row, py) =>
       eyeRows.includes(py) || legRows.includes(py) ? [] : [[row, py] as const],
     ),
   )
-  const legs = (step: Pose['step']) =>
-    draw(legRows.map(py => [rowsFor({ step })[py] ?? '', py] as const))
+  const legs = (step: Pose['step'], facing: Pose['facing'] = 0) =>
+    draw(legRows.map(py => [rowsFor({ step, facing })[py] ?? '', py] as const))
 
   // Eyes are holes in the body, or the boss's dark pixels; a blink covers them for a moment.
   const blinkDur = seconds(BLINK_EVERY * TICK_MS)
@@ -124,20 +126,25 @@ function creature(columns: number, stride: Stride): string {
   const begin = seconds(-(startMs + stride.elapsedMs))
   const walking = toggle('1;0;1;0', keyTimes(0, a, b, c), dur, begin)
   const pausing = toggle('0;1;0;1', keyTimes(0, a, b, c), dur, begin)
+  const goingRight = toggle('1;0', keyTimes(0, a), dur, begin)
+  const goingLeft = toggle('0;1;0', keyTimes(0, b, c), dur, begin)
 
   const move = `<animateTransform attributeName="transform" type="translate" values="0 0;${end} 0;${end} 0;0 0;0 0" keyTimes="${keyTimes(0, a, b, c, 1)}" dur="${dur}" begin="${begin}" repeatCount="indefinite"/>`
   const facing =
-    layer(eyes(1), 1, toggle('1;0', keyTimes(0, a), dur, begin)) +
-    layer(eyes(0), 0, pausing) +
-    layer(eyes(-1), 0, toggle('0;1;0', keyTimes(0, b, c), dur, begin))
+    layer(eyes(1), 1, goingRight) + layer(eyes(0), 0, pausing) + layer(eyes(-1), 0, goingLeft)
 
   // Two pixels a step, as on the terminal.
   const stepDur = seconds((4 / stride.speed) * TICK_MS)
   const stepBegin = seconds(-stride.elapsedMs)
-  const stepping =
-    layer(legs(1), 1, toggle('1;0', '0;0.5', stepDur, stepBegin)) +
-    layer(legs(2), 0, toggle('0;1', '0;0.5', stepDur, stepBegin))
-  const feet = layer(legs(0), 0, pausing) + layer(stepping, 1, walking)
+  const stepping = (facing: 1 | -1) =>
+    layer(legs(1, facing), 1, toggle('1;0', '0;0.5', stepDur, stepBegin)) +
+    layer(legs(2, facing), 0, toggle('0;1', '0;0.5', stepDur, stepBegin))
+  // Legs that look the same both ways walk as one layer.
+  const walkingFeet =
+    stepping(1) === stepping(-1)
+      ? layer(stepping(1), 1, walking)
+      : layer(stepping(1), 1, goingRight) + layer(stepping(-1), 0, goingLeft)
+  const feet = layer(legs(0), 0, pausing) + walkingFeet
 
   return `<g fill="${fill}">${move}${fixed}${facing}${feet}</g>`
 }

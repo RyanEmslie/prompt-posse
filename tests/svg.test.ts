@@ -56,7 +56,10 @@ describe('desktop svg', () => {
   test('steps every two pixels, and blinks whichever way it faces', () => {
     const svg = posseSvg(COLUMNS, [stride(0, 1, 0, 0.8)])
     const stepDur = seconds((4 / 0.8) * TICK_MS)
-    expect(svg.split(`dur="${stepDur}"`).length - 1).toBe(2)
+    // The boss's legs differ by the way it walks, so it steps in each direction.
+    expect(svg.split(`dur="${stepDur}"`).length - 1).toBe(4)
+    const small = posseSvg(COLUMNS, [{ ...stride(0, 1, 0, 0.8), look: lookFor('Explore') }])
+    expect(small.split(`dur="${stepDur}"`).length - 1).toBe(2)
     const blinkDur = seconds(BLINK_EVERY * TICK_MS)
     expect(svg.split(`dur="${blinkDur}"`).length - 1).toBe(3)
   })

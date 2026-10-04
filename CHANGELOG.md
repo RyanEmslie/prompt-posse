@@ -5,7 +5,7 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 ## [Unreleased]
 
 ### Changed
-- The boss is redrawn after Claude Code's mascot: boxier, on four short legs, with a darker right side and dark eyes. Its eyes used to be holes, so they showed white on a light terminal. In the terminal, a cell with no hole now shows a second color behind its glyph. Subagent creatures look the same as before.
+- The boss is redrawn after Claude Code's mascot: boxier, on four short legs, with a darker side at its back, which flips when it turns, and dark eyes. Its eyes used to be holes, so they showed white on a light terminal. In the terminal, a cell with no hole now shows a second color behind its glyph. Subagent creatures look the same as before.
 
 ## [0.4.3] - 2026-10-03
 

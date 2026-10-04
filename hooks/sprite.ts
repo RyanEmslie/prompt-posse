@@ -49,20 +49,26 @@ const LEGS = {
   2: '....#....#..',
 } as const
 
-// The boss, after Claude Code's mascot: a block with a shaded right side
-// (`%`), dark eyes (`o`) and four short legs.
+// The boss, after Claude Code's mascot: a block with a shaded side (`%`),
+// dark eyes (`o`) and four short legs. Drawn here walking left, its shaded
+// side behind it on the right; walking right it's mirrored, so the shade
+// stays at its back. Facing you, it stands as the mascot does, shaded on
+// the right.
 const BOSS_BODY = '..##########%%..'
 const BOSS_ARMS = '############%%%%'
+// Each eye keeps body on both sides, so a cell never has to choose between
+// an eye and a hole or the shade, at either pixel offset.
 const BOSS_EYES = {
-  [-1]: '..o######o##%%..',
-  0: '..#o######o#%%..',
-  1: '..##o######o%%..',
+  [-1]: '..#o#####o##%%..',
+  0: '..##o#####o#%%..',
 } as const
 const BOSS_LEGS = {
   0: '...#..#..#..%...',
   1: '...#.....#......',
   2: '......#.....%...',
 } as const
+
+const mirror = (row: string) => [...row].reverse().join('')
 
 // Indexed by the filled quadrants: top-left 1, top-right 2, bottom-left 4,
 // bottom-right 8.
@@ -80,8 +86,9 @@ type Cell = { glyph: string; color: number; background: number }
  */
 export function spritePixels(pose: Pose, look: Look): readonly string[] {
   if (look.isBoss) {
-    const eyes = pose.isBlinking ? BOSS_BODY : BOSS_EYES[pose.facing]
-    return [BOSS_BODY, eyes, BOSS_ARMS, BOSS_BODY, BOSS_BODY, BOSS_LEGS[pose.step]]
+    const eyes = pose.isBlinking ? BOSS_BODY : BOSS_EYES[pose.facing === 1 ? -1 : pose.facing]
+    const rows = [BOSS_BODY, eyes, BOSS_ARMS, BOSS_BODY, BOSS_BODY, BOSS_LEGS[pose.step]]
+    return pose.facing === 1 ? rows.map(mirror) : rows
   }
 
   const eyes = pose.isBlinking ? BODY : EYES[pose.facing]
