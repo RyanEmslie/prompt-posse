@@ -124,7 +124,6 @@ function creature(columns: number, stride: Stride): string {
       : travelMs + pauseMs + ((end - stride.x) / end) * travelMs
   const dur = seconds(periodMs)
   const begin = seconds(-(startMs + stride.elapsedMs))
-  const walking = toggle('1;0;1;0', keyTimes(0, a, b, c), dur, begin)
   const pausing = toggle('0;1;0;1', keyTimes(0, a, b, c), dur, begin)
   const goingRight = toggle('1;0', keyTimes(0, a), dur, begin)
   const goingLeft = toggle('0;1;0', keyTimes(0, b, c), dur, begin)
@@ -139,12 +138,10 @@ function creature(columns: number, stride: Stride): string {
   const stepping = (facing: 1 | -1) =>
     layer(legs(1, facing), 1, toggle('1;0', '0;0.5', stepDur, stepBegin)) +
     layer(legs(2, facing), 0, toggle('0;1', '0;0.5', stepDur, stepBegin))
-  // Legs that look the same both ways walk as one layer.
-  const walkingFeet =
-    stepping(1) === stepping(-1)
-      ? layer(stepping(1), 1, walking)
-      : layer(stepping(1), 1, goingRight) + layer(stepping(-1), 0, goingLeft)
-  const feet = layer(legs(0), 0, pausing) + walkingFeet
+  const feet =
+    layer(legs(0), 0, pausing) +
+    layer(stepping(1), 1, goingRight) +
+    layer(stepping(-1), 0, goingLeft)
 
   return `<g fill="${fill}">${move}${fixed}${facing}${feet}</g>`
 }

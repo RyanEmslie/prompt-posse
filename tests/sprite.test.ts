@@ -1,7 +1,16 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { ANTENNAE, BOSS, lookFor } from '../hooks/looks'
-import { BOSS_WIDTH, SPRITE_WIDTH, glyphRows, rasterCells, spritePixels, spriteWidth, toBase64 } from '../hooks/sprite'
+import { ANTENNAE, BOSS, LEGEND, lookFor } from '../hooks/looks'
+import {
+  BOSS_WIDTH,
+  SPRITE_WIDTH,
+  glyphRows,
+  pixelColor,
+  rasterCells,
+  spritePixels,
+  spriteWidth,
+  toBase64,
+} from '../hooks/sprite'
 import { decodeCells } from './kit'
 
 const STANDING = { facing: 0, step: 0, isBlinking: false } as const
@@ -39,8 +48,15 @@ describe('sprite', () => {
   test('a subagent creature lifts alternate legs as it walks', () => {
     const at = (step: 1 | 2) =>
       glyphRows(7, [{ x: 1, pose: { ...STANDING, facing: 1, step }, look: SMALL }])
-    expect(at(1)[2]).toBe('▝▜▀▀▛▀▘')
-    expect(at(2)[2]).toBe('▝▀▜▀▀▛▘')
+    expect(at(1)[2]).toBe('▝▀▜▀▀▛▘')
+    expect(at(2)[2]).toBe('▝▜▀▀▛▀▘')
+  })
+
+  test("a subagent's shaded side stays at its back, and facing you it shows none", () => {
+    const rows = (facing: -1 | 0 | 1) => spritePixels({ ...STANDING, facing }, SMALL)
+    expect(rows(-1)[2]).toBe('..######%%..')
+    expect(rows(1)[2]).toBe('..%%######..')
+    expect(rows(0).join('')).not.toContain('%')
   })
 
   test('an Explore agent wears antennae', () => {
@@ -59,17 +75,20 @@ describe('sprite', () => {
 })
 
 describe('raster cells', () => {
-  test('pack each glyph in its color on the terminal background', () => {
-    const figures = [{ x: 1, pose: STANDING, look: SMALL }]
+  test("pack each glyph in a creature's colors, on the terminal background elsewhere", () => {
+    const figures = [{ x: 1, pose: { ...STANDING, facing: -1 }, look: SMALL }] as const
     const cells = decodeCells(rasterCells(9, figures))
     expect(cells).toHaveLength(9 * 3)
 
     const rows = glyphRows(9, figures)
     expect(cells.map(cell => cell.glyph).join('')).toBe(rows.join(''))
+    const colors = [SMALL.color, pixelColor('%', SMALL), pixelColor('o', SMALL), TERMINAL_DEFAULT]
     for (const cell of cells) {
-      expect(cell.bg).toBe(TERMINAL_DEFAULT)
-      expect(cell.fg).toBe(cell.glyph === ' ' ? TERMINAL_DEFAULT : BOSS.color)
+      expect(colors).toContain(cell.fg)
+      expect(colors).toContain(cell.bg)
+      if (cell.glyph === ' ') expect(cell.bg).toBe(TERMINAL_DEFAULT)
     }
+    expect(cells.some(cell => cell.fg === pixelColor('%', SMALL))).toBe(true)
   })
 
   test("the boss's shade and dark eyes show behind the glyph where a cell has no hole", () => {
@@ -86,12 +105,16 @@ describe('raster cells', () => {
     expect(cells.some(cell => cell.bg === BOSS.shadeColor)).toBe(true)
   })
 
-  test("both of the boss's eyes show whichever way it faces, at either pixel offset", () => {
-    for (const facing of [-1, 0, 1] as const) {
-      for (const x of [0, 1]) {
-        const cells = decodeCells(rasterCells(9, [{ x, pose: { ...STANDING, facing }, look: BOSS }]))
-        const eyes = cells.filter(cell => cell.fg === BOSS.eyeColor || cell.bg === BOSS.eyeColor)
-        expect(eyes).toHaveLength(2)
+  test("both of every creature's eyes show whichever way it faces, at either pixel offset", () => {
+    const looks = [BOSS, ...LEGEND.map(({ look }) => look), lookFor('my-custom-agent')]
+    for (const look of looks) {
+      const eye = pixelColor('o', look)
+      for (const facing of [-1, 0, 1] as const) {
+        for (const x of [0, 1]) {
+          const cells = decodeCells(rasterCells(9, [{ x, pose: { ...STANDING, facing }, look }]))
+          const eyes = cells.filter(cell => cell.fg === eye || cell.bg === eye)
+          expect(eyes).toHaveLength(2)
+        }
       }
     }
   })

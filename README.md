@@ -13,7 +13,7 @@ The whole lineup, as text:
 ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔
 ```
 
-From left to right: the boss, the biggest of them, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents. The boss is drawn after Claude Code's mascot, with a shaded side at its back and dark eyes.
+From left to right: the boss, the biggest of them, then the creatures for Explore, Plan, general-purpose, `claude` and fork subagents. The boss is drawn after Claude Code's mascot. Every creature has dark eyes and a darker side at its back, which flips when it turns; when one stops to face you, it stands square on.
 
 ## What it does
 

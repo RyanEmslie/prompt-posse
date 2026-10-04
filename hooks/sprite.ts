@@ -23,9 +23,9 @@ export type Look = {
   headwear: Headwear | null
   /** The headwear's own color, so it stands out from the body. */
   hatColor?: number
-  /** The shaded side's color, for a body drawn with one. */
+  /** The shaded side's color; without one, a darker shade of the body's. */
   shadeColor?: number
-  /** The eyes' color; without one, eyes are holes in the body. */
+  /** The eyes' color; without one, near black. */
   eyeColor?: number
   isBoss?: boolean
 }
@@ -35,19 +35,29 @@ export type Figure = { x: number; pose: Pose; look: Look }
 
 export const spriteWidth = (look: Look) => (look.isBoss ? BOSS_WIDTH : SPRITE_WIDTH)
 
+// A subagent's creature, drawn walking left with its shaded side (`%`) at
+// its back on the right, and dark eyes (`o`); walking right it's mirrored.
+// Facing you, it stands square on, with no side showing. As on the boss,
+// each eye keeps body on both sides at either pixel offset.
 const BARE: Headwear = ['............', '............']
-const BODY = '..########..'
-const ARMS = '############'
-const EYES = {
-  [-1]: '..#.##.###..',
-  0: '..##.##.##..',
-  1: '..###.##.#..',
-} as const
+const BODY = '..######%%..'
+const ARMS = '########%%%%'
+const EYES = '..#o##o#%%..'
 const LEGS = {
+  0: '..#.#..#.%..',
+  1: '..#....#....',
+  2: '....#....%..',
+} as const
+const FRONT_BODY = '..########..'
+const FRONT_ARMS = '############'
+const FRONT_EYES = '..##o##o##..'
+const FRONT_LEGS = {
   0: '..#.#..#.#..',
   1: '..#....#....',
   2: '....#....#..',
 } as const
+
+const EYE_COLOR = 0x1f1e1d
 
 // The boss, after Claude Code's mascot: a block with a shaded side (`%`),
 // dark eyes (`o`) and four short legs. Drawn here walking left, its shaded
@@ -91,17 +101,25 @@ export function spritePixels(pose: Pose, look: Look): readonly string[] {
     return pose.facing === 1 ? rows.map(mirror) : rows
   }
 
-  const eyes = pose.isBlinking ? BODY : EYES[pose.facing]
-  const [crown, brim] = (look.headwear ?? BARE).map(row => row.replaceAll('#', '+'))
-  return [crown ?? '', brim ?? '', BODY, eyes, ARMS, LEGS[pose.step]]
+  const [crown = '', brim = ''] = (look.headwear ?? BARE).map(row => row.replaceAll('#', '+'))
+  if (pose.facing === 0) {
+    const eyes = pose.isBlinking ? FRONT_BODY : FRONT_EYES
+    return [crown, brim, FRONT_BODY, eyes, FRONT_ARMS, FRONT_LEGS[pose.step]]
+  }
+  const body = [BODY, pose.isBlinking ? BODY : EYES, ARMS, LEGS[pose.step]]
+  return [crown, brim, ...(pose.facing === 1 ? body.map(mirror) : body)]
 }
+
+/** A color 22% darker, channel by channel. */
+const darker = (color: number) =>
+  [16, 8, 0].reduce((out, shift) => out | (Math.round(((color >> shift) & 255) * 0.78) << shift), 0)
 
 /** The color a sprite pixel paints in, or none. */
 export function pixelColor(pixel: string | undefined, look: Look): number | null {
   if (pixel === '#') return look.color
   if (pixel === '+') return look.hatColor ?? look.color
-  if (pixel === '%') return look.shadeColor ?? look.color
-  if (pixel === 'o') return look.eyeColor ?? null
+  if (pixel === '%') return look.shadeColor ?? darker(look.color)
+  if (pixel === 'o') return look.eyeColor ?? EYE_COLOR
   return null
 }
 
