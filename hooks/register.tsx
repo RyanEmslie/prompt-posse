@@ -1,6 +1,8 @@
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import { hex, legendRow } from './legend'
+import { ease, paceFor, rateAt } from './pace'
+import type { Work } from './pace'
 import { BOSS, hash, hatFor, legendText } from './looks'
 import { BOSS_WIDTH, SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
@@ -37,14 +39,15 @@ const OPTIONS =
 // How long `/posse demo` walks, and who walks in it: one of each kind of
 // agent and a second Explore, to show the spare hat a newcomer wears.
 export const DEMO_MS = 20_000
+// Each walks at a pace of its own, as agents doing more or less work would.
 const DEMO = [
-  ['Explore', 'Explore'],
-  ['Plan', 'Plan'],
-  ['general-purpose', 'general-purpose'],
-  ['claude', 'claude'],
-  ['fork', 'fork'],
-  ['Explore', 'a second Explore'],
-  ['my-agent', 'any other type'],
+  ['Explore', 'Explore', 1.5],
+  ['Plan', 'Plan', 0.6],
+  ['general-purpose', 'general-purpose', 1.2],
+  ['claude', 'claude', 0.9],
+  ['fork', 'fork', 0.5],
+  ['Explore', 'a second Explore', 1.3],
+  ['my-agent', 'any other type', 1],
 ] as const
 
 type Creature = {
@@ -56,12 +59,20 @@ type Creature = {
   description: string
   /** When it started walking: the desktop's animation runs from it. */
   since: number
+  /** Its own speed, which the desktop walks it at. */
+  baseSpeed: number
+  /** In the terminal, the share of its own speed its agent's work sets it walking at. */
+  pace: number
+  /** A demo creature's pace, as there is no agent's work to set it. */
+  demoPace?: number
 }
 
 type Walk = {
   boss: Creature
   /** A creature for each active subagent, by agent id; background ones keep walking after the main turn ends. */
   subagents: Map<string, Creature>
+  /** The tokens each agent's model wrote lately, by agent id, which set its creature's pace. */
+  work: Map<string, Work[]>
   /** The creatures `/posse demo` brought out, until its time is up. */
   demo: Map<string, Creature>
   demoTimer: Timer | null
@@ -218,6 +229,11 @@ async function list($: EngineInterface, walk: Walk) {
       isChanged = true
     }
   }
+  for (const id of walk.work.keys()) {
+    if (!active.has(id)) {
+      walk.work.delete(id)
+    }
+  }
 
   for (const agent of active.values()) {
     if (walk.subagents.has(agent.id)) {
@@ -255,6 +271,22 @@ function join(walk: Walk, id: string, type: string, description: string, now: nu
     type,
     description,
     since: now,
+    baseSpeed: speed,
+    pace: paceFor(rateAt(walk.work.get(id) ?? [], walk.ticks)),
+  }
+}
+
+/** Sets each subagent's creature walking at the pace its agent's work calls for. */
+function setPaces(walk: Walk) {
+  const set = (creature: Creature, target: number) => {
+    creature.pace = ease(creature.pace, target)
+    creature.walker.speed = creature.baseSpeed * creature.pace
+  }
+  for (const [id, creature] of walk.subagents) {
+    set(creature, paceFor(rateAt(walk.work.get(id) ?? [], walk.ticks)))
+  }
+  for (const creature of walk.demo.values()) {
+    set(creature, creature.demoPace ?? 1)
   }
 }
 
@@ -280,6 +312,7 @@ function tick($: EngineInterface, walk: Walk) {
   }
 
   const { requestId, columns, hasBoss } = walk.band
+  setPaces(walk)
   const creatures = shown(walk, hasBoss)
   for (const creature of creatures) {
     const others = creatures.filter(c => c !== creature).map(c => c.walker)
@@ -296,8 +329,11 @@ export const register: Register = on => {
       type: '',
       description: '',
       since: 0,
+      baseSpeed: 1,
+      pace: 1,
     },
     subagents: new Map(),
+    work: new Map(),
     demo: new Map(),
     demoTimer: null,
     isMainTurn: false,
@@ -340,15 +376,15 @@ export const register: Register = on => {
         return { text: 'The demo is over.' }
       }
       const now = await $.clock.now()
-      for (const [i, [type, description]] of DEMO.entries()) {
+      for (const [i, [type, description, pace]] of DEMO.entries()) {
         const id = `demo-${i}`
-        walk.demo.set(id, join(walk, id, type, description, now))
+        walk.demo.set(id, { ...join(walk, id, type, description, now), pace, demoPace: pace })
       }
       walk.demoTimer = $.clock.after(DEMO_MS, () => endDemo($, walk))
       wake($, walk)
       $.ui.invalidate('ui.render')
       return {
-        text: `The posse walks for ${DEMO_MS / 1000} seconds: the boss, a creature for each kind of agent, and a second Explore in a spare hat. The legend under them names each one. Run \`/posse demo\` again to end it sooner.`,
+        text: `The posse walks for ${DEMO_MS / 1000} seconds: the boss, a creature for each kind of agent, and a second Explore in a spare hat, each at a different pace as busier or idler agents would walk. The legend under them names each one. Run \`/posse demo\` again to end it sooner.`,
       }
     }
     if (arg !== '' && arg !== 'on' && arg !== 'off') {
@@ -399,6 +435,19 @@ export const register: Register = on => {
     relist($, walk)
 
     return next(e)
+  })
+
+  // Each response a subagent's model gives adds its output tokens to that
+  // agent's work, which sets how fast its creature walks.
+  on('turn.step', async function* ($, e, next) {
+    const result = yield* next(e)
+    if (e.agentId !== undefined && result.usage !== null && result.usage.output_tokens > 0) {
+      const work = walk.work.get(e.agentId) ?? []
+      work.push({ tick: walk.ticks, tokens: result.usage.output_tokens })
+      walk.work.set(e.agentId, work)
+    }
+
+    return result
   })
 
   on('agent.spawn', async ($, e, next) => {
@@ -465,10 +514,10 @@ export const register: Register = on => {
 
     if (e.surface === 'desktop') {
       const now = await $.clock.now()
-      const strides = creatures.map(({ walker, look, since }) => ({
+      const strides = creatures.map(({ walker, look, since, baseSpeed }) => ({
         x: walker.x,
         heading: walker.heading,
-        speed: walker.speed,
+        speed: baseSpeed,
         elapsedMs: now - since,
         look,
       }))

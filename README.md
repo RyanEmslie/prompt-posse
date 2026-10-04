@@ -34,7 +34,7 @@ From left to right: the boss, the biggest of them, then the creatures for Explor
 
   No two creatures on the strip wear the same hat color. When a hat color is already taken, often by another agent of the same type, the newcomer keeps its body and headwear but wears a spare color, and keeps it until it leaves.
 - While subagents walk, a legend row under the ground lists each one's task, as the Agent call described it, in the order they joined. Each entry starts with a mark in its creature's hat color, and the task is written in its body color. When the row is too narrow, the longest tasks are cut short first, down to 10 characters, so that more of them fit. What doesn't fit even then is counted at the end as `+N more`.
-- The boss always walks at the same pace: 10 columns a second at the default speed. Each subagent's creature gets one of six paces, from 7 to 12 columns a second, picked from the subagent's id. In the terminal, when two meet, they stop briefly and turn around. In the desktop app they walk past each other.
+- The boss always walks at the same pace: 10 columns a second at the default speed. Each subagent's creature gets one of six speeds of its own, from 7 to 12 columns a second, picked from the subagent's id. In the terminal, how fast it actually walks follows how hard its agent is working: the output tokens its model wrote over the last 10 seconds. An agent waiting on a tool strolls at half its own speed; one writing 50 tokens a second or more runs at one and a half times it. A creature eases into a new pace over about a second. In the desktop app, each walks at its own speed throughout. In the terminal, when two meet, they stop briefly and turn around. In the desktop app they walk past each other.
 - Subagents running in the background keep walking after the main turn ends, with the boss leading them. The strip disappears when the last one finishes.
 - The mod checks which subagents are running whenever one starts, whenever a turn ends, and every half second while anything is walking. So a creature can arrive or leave up to half a second after its subagent starts or finishes.
 - The strip steps aside while Claude Code is showing a survey, when there are fewer than 4 free rows above the prompt (the legend row needs a fifth, and is the first to go), or when it's under 8 columns wide, too narrow for the boss. It comes back when there's room again.
@@ -44,7 +44,7 @@ From left to right: the boss, the biggest of them, then the creatures for Explor
 - `/posse` switches the posse on or off. The setting is remembered across sessions.
 - `/posse on` and `/posse off` pick one.
 - `/posse legend` shows which creature is which.
-- `/posse demo` brings the whole posse out for 20 seconds, even while Claude isn't working: the boss, a creature for each kind of agent, and a second Explore in a spare hat, with the legend naming each one. It starts no agents and uses no tokens. Run it again to end it sooner.
+- `/posse demo` brings the whole posse out for 20 seconds, even while Claude isn't working: the boss, a creature for each kind of agent, and a second Explore in a spare hat, with the legend naming each one. Each walks at a different pace, as agents doing more or less work would. It starts no agents and uses no tokens. Run it again to end it sooner.
 
 The command runs right away, even while Claude is working and the posse is walking.
 

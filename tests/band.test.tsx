@@ -1,9 +1,10 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { BOSS, lookFor } from '../hooks/looks'
+import { BOSS, hash, lookFor } from '../hooks/looks'
+import { FULL_RATE, MIN_PACE, WINDOW_MS } from '../hooks/pace'
 import { SPRITE_ROWS } from '../hooks/sprite'
 import { TICK_MS } from '../hooks/walker'
-import type { AgentInfo } from 'claude-code'
+import type { AgentInfo, EngineInterface, On } from 'claude-code'
 
 import { IDLE_RETRIES, LIST_EVERY, PANE_STALE_MS } from '../hooks/register'
 import { SPAWN, TURN_END, agent, band, decodeCells, engine } from './kit'
@@ -335,5 +336,65 @@ describe('legend row', () => {
 
     expect(await ui.find({ type: 'Raster' })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: 'Find sprite code' })).toBeUndefined()
+  })
+})
+
+describe('pace', () => {
+  // The Explore creature's own speed, in pixels a tick, as its agent's id picks it.
+  const BASE = 0.7 + (hash('a1') % 6) / 10
+  const TICKS = 60
+
+  // How many columns the Explore creature walks in TICKS ticks, after its
+  // agent's model wrote `tokens` output tokens.
+  async function walked($: EngineInterface, on: On, tokens: number) {
+    const clock = mock.clock(on)
+    engine(on, [agent('a1', 'Explore')])
+    on('turn.step', async function* (_$, e) {
+      return {
+        turnId: e.turnId,
+        index: e.index,
+        answer: '',
+        toolUses: [],
+        stopReason: 'end_turn' as const,
+        usage: {
+          input_tokens: 0,
+          output_tokens: tokens,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 0,
+          model: 'test',
+        },
+      }
+    })
+    // Wide enough that it walks the whole time without reaching an edge.
+    const props = { bodyColumns: 507 }
+    const ui = await $.ui.mount(band(true, 'terminal', props))
+    await $.turn.start({ text: 'go', turnId: 't1' })
+    await clock.advance(TICK_MS * LIST_EVERY)
+
+    const column = async () => {
+      await ui.redraw(band(true, 'terminal', props).props)
+      const cells = decodeCells(String((await ui.find({ type: 'Raster' }))?.props.cells))
+      return cells.findIndex(cell => cell.fg === lookFor('Explore').color) % (cells.length / SPRITE_ROWS)
+    }
+    const start = await column()
+    if (tokens > 0) {
+      for await (const _ of $.turn.step({ turnId: 't2', index: 0, model: 'test', messageCount: 1, agentId: 'a1' })) {
+        // The test's response arrives whole: nothing streams.
+      }
+    }
+    await clock.advance(TICK_MS * TICKS)
+
+    return Math.abs((await column()) - start)
+  }
+
+  test("an idle agent's creature strolls at half its own speed", async ($, on) => {
+    const columns = await walked($, on, 0)
+    expect(columns).toBeGreaterThan(0)
+    expect(columns).toBeLessThanOrEqual(Math.ceil((BASE * MIN_PACE * TICKS) / 2) + 1)
+  })
+
+  test("a busy agent's creature runs faster than its own speed", async ($, on) => {
+    const columns = await walked($, on, FULL_RATE * (WINDOW_MS / 1000))
+    expect(columns).toBeGreaterThanOrEqual(Math.floor((BASE * TICKS) / 2))
   })
 })
