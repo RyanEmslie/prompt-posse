@@ -1,8 +1,9 @@
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { LEGEND } from '../hooks/looks'
+import { LEGEND, lookFor } from '../hooks/looks'
+import { DEMO_MS, LIST_EVERY } from '../hooks/register'
 import { TICK_MS } from '../hooks/walker'
-import { SPAWN, START, agent, band, engine, host, posse } from './kit'
+import { SPAWN, START, agent, band, decodeCells, engine, host, posse } from './kit'
 
 describe('/posse', () => {
   test('is registered at session start, to run even mid-turn', async ($, on) => {
@@ -10,7 +11,7 @@ describe('/posse', () => {
     const { commands } = host(on)
     await $.session.start(START)
     expect(commands).toEqual([
-      expect.objectContaining({ name: 'posse', argumentHint: '[on|off|legend]', immediate: true }),
+      expect.objectContaining({ name: 'posse', argumentHint: '[on|off|legend|demo]', immediate: true }),
     ])
   })
 
@@ -124,5 +125,72 @@ describe('/posse', () => {
     expect(text).toContain("`dance` isn't a /posse option")
     expect(text).toContain('`/posse legend`')
     expect(stored.has('isOn')).toBe(false)
+  })
+
+  test('demo brings out one of each kind for a while, even with no turn running', async ($, on) => {
+    const clock = mock.clock(on)
+    const blits = engine(on)
+    host(on)
+    await $.session.start(START)
+    const ui = await $.ui.mount(band(false, 'terminal', { bodyColumns: 115 }))
+    expect(await ui.find({ type: 'Raster' })).toBeUndefined()
+
+    const reply = await $.command.run(posse('demo'))
+    expect(reply.text).toContain(`walks for ${DEMO_MS / 1000} seconds`)
+    await ui.redraw(band(false, 'terminal', { bodyColumns: 115 }).props)
+    const raster = await ui.find({ type: 'Raster' })
+    expect(raster).toBeDefined()
+    const colors = new Set(decodeCells(String(raster?.props.cells)).map(cell => cell.fg))
+    for (const type of ['Explore', 'Plan', 'general-purpose', 'claude', 'fork']) {
+      expect(colors.has(lookFor(type).color)).toBe(true)
+    }
+    for (const name of ['Explore', 'a second Explore', 'any other type']) {
+      expect(await ui.find({ type: 'Text', text: name })).toBeDefined()
+    }
+
+    // The agent listing finds no one, and leaves the demo walking.
+    await clock.advance(TICK_MS * LIST_EVERY * 2)
+    expect(blits.length).toBeGreaterThan(0)
+    await ui.redraw(band(false, 'terminal', { bodyColumns: 115 }).props)
+    expect(await ui.find({ type: 'Text', text: 'a second Explore' })).toBeDefined()
+
+    await clock.advance(DEMO_MS)
+    const done = blits.length
+    await clock.advance(TICK_MS * 10)
+    expect(blits).toHaveLength(done)
+    await ui.redraw(band(false, 'terminal', { bodyColumns: 115 }).props)
+    expect(await ui.find({ type: 'Raster' })).toBeUndefined()
+    expect(await ui.find({ text: 'engine band' })).toBeDefined()
+  })
+
+  test('demo again ends it sooner', async ($, on) => {
+    const clock = mock.clock(on)
+    const blits = engine(on)
+    host(on)
+    await $.session.start(START)
+    const ui = await $.ui.mount(band(false, 'terminal'))
+    await $.command.run(posse('demo'))
+    await clock.advance(TICK_MS * 4)
+
+    expect((await $.command.run(posse('demo'))).text).toBe('The demo is over.')
+    const done = blits.length
+    await clock.advance(TICK_MS * 10)
+    expect(blits).toHaveLength(done)
+    await ui.redraw(band(false, 'terminal').props)
+    expect(await ui.find({ type: 'Raster' })).toBeUndefined()
+  })
+
+  test('demo asks for the posse to be on first', async ($, on) => {
+    mock.clock(on)
+    engine(on)
+    host(on, new Map([['isOn', false]]))
+    await $.session.start(START)
+    const ui = await $.ui.mount(band(false, 'terminal'))
+
+    expect((await $.command.run(posse('demo'))).text).toBe(
+      'The posse is off. Run `/posse on` first, then `/posse demo`.',
+    )
+    await ui.redraw(band(false, 'terminal').props)
+    expect(await ui.find({ type: 'Raster' })).toBeUndefined()
   })
 })

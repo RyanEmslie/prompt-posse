@@ -33,7 +33,19 @@ export const IDLE_RETRIES = 3
 // Where `/posse` remembers being switched off, across sessions.
 const STORE_KEY = 'isOn'
 const OPTIONS =
-  '`/posse` to switch the posse on or off, `/posse on` or `/posse off` to pick one, or `/posse legend` to see which creature is which.'
+  '`/posse` to switch the posse on or off, `/posse on` or `/posse off` to pick one, `/posse legend` to see which creature is which, or `/posse demo` to watch them walk.'
+// How long `/posse demo` walks, and who walks in it: one of each kind of
+// agent and a second Explore, to show the spare hat a newcomer wears.
+export const DEMO_MS = 20_000
+const DEMO = [
+  ['Explore', 'Explore'],
+  ['Plan', 'Plan'],
+  ['general-purpose', 'general-purpose'],
+  ['claude', 'claude'],
+  ['fork', 'fork'],
+  ['Explore', 'a second Explore'],
+  ['my-agent', 'any other type'],
+] as const
 
 type Creature = {
   walker: Walker
@@ -50,6 +62,9 @@ type Walk = {
   boss: Creature
   /** A creature for each active subagent, by agent id; background ones keep walking after the main turn ends. */
   subagents: Map<string, Creature>
+  /** The creatures `/posse demo` brought out, until its time is up. */
+  demo: Map<string, Creature>
+  demoTimer: Timer | null
   isMainTurn: boolean
   /** Whether `/posse` has it switched on. */
   isOn: boolean
@@ -78,10 +93,14 @@ type Walk = {
   ticks: number
 }
 
-const shown = (walk: Walk, hasBoss: boolean) =>
-  hasBoss
-    ? [walk.boss, ...walk.subagents.values()]
-    : [...walk.subagents.values()]
+const shown = (walk: Walk, hasBoss: boolean) => [
+  ...(hasBoss ? [walk.boss] : []),
+  ...walk.subagents.values(),
+  ...walk.demo.values(),
+]
+
+/** Whether anyone besides the boss is out walking. */
+const hasCompany = (walk: Walk) => walk.subagents.size > 0 || walk.demo.size > 0
 
 const frame = (columns: number, creatures: readonly Creature[]) =>
   rasterCells(
@@ -144,7 +163,7 @@ function relist($: EngineInterface, walk: Walk) {
           { to: 'debug' },
         )
       }
-      if (walk.isMainTurn || walk.subagents.size > 0) {
+      if (walk.isMainTurn || hasCompany(walk)) {
         wake($, walk)
       } else if (walk.failures <= IDLE_RETRIES) {
         $.clock.after(TICK_MS * LIST_EVERY, () => relist($, walk))
@@ -200,33 +219,52 @@ async function list($: EngineInterface, walk: Walk) {
     }
   }
 
-  const columns = walk.band?.columns ?? 80
   for (const agent of active.values()) {
     if (walk.subagents.has(agent.id)) {
       continue
     }
-    const others = shown(walk, walk.band?.hasBoss ?? walk.isMainTurn).map(c => c.walker)
-    const x = freeSpot(columns, SPRITE_WIDTH, others)
-    const heading = x < lastX(columns) / 2 ? 1 : -1
-    const speed = 0.7 + (hash(agent.id) % 6) / 10
-    // A hat color no other creature on the strip wears, so each tells apart.
-    const worn = [...walk.subagents.values()].map(({ look }) => look.hatColor ?? look.color)
-    walk.subagents.set(agent.id, {
-      walker: createWalker(x, heading, speed, SPRITE_WIDTH),
-      look: hatFor(agent.type, worn),
-      type: agent.type,
-      description: agent.description.trim() || agent.type,
-      since: now,
-    })
+    walk.subagents.set(
+      agent.id,
+      join(walk, agent.id, agent.type, agent.description.trim() || agent.type, now),
+    )
     isChanged = true
   }
 
   if (isChanged) {
     $.ui.invalidate('ui.render')
   }
-  if (walk.subagents.size > 0) {
+  if (hasCompany(walk)) {
     wake($, walk)
   } else if (!walk.isMainTurn) {
+    stop(walk)
+  }
+}
+
+/** A newcomer's creature, in the freest spot and a hat color no one on the strip wears. */
+function join(walk: Walk, id: string, type: string, description: string, now: number): Creature {
+  const columns = walk.band?.columns ?? 80
+  const creatures = shown(walk, walk.band?.hasBoss ?? walk.isMainTurn)
+  const x = freeSpot(columns, SPRITE_WIDTH, creatures.map(c => c.walker))
+  const heading = x < lastX(columns) / 2 ? 1 : -1
+  const speed = 0.7 + (hash(id) % 6) / 10
+  const worn = creatures.filter(c => c !== walk.boss).map(({ look }) => look.hatColor ?? look.color)
+
+  return {
+    walker: createWalker(x, heading, speed, SPRITE_WIDTH),
+    look: hatFor(type, worn),
+    type,
+    description,
+    since: now,
+  }
+}
+
+/** Sends the demo's creatures home, and stops the walk if no one else is out. */
+function endDemo($: EngineInterface, walk: Walk) {
+  walk.demoTimer?.cancel()
+  walk.demoTimer = null
+  walk.demo.clear()
+  $.ui.invalidate('ui.render')
+  if (!walk.isMainTurn && !hasCompany(walk)) {
     stop(walk)
   }
 }
@@ -260,6 +298,8 @@ export const register: Register = on => {
       since: 0,
     },
     subagents: new Map(),
+    demo: new Map(),
+    demoTimer: null,
     isMainTurn: false,
     isOn: true,
     listings: 0,
@@ -279,7 +319,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'posse',
       description: "Show or hide the creatures that walk above the prompt while Claude and its agents work, or see who's who",
-      argumentHint: '[on|off|legend]',
+      argumentHint: '[on|off|legend|demo]',
       immediate: true,
     })
 
@@ -290,6 +330,26 @@ export const register: Register = on => {
     const arg = e.args.trim().toLowerCase()
     if (arg === 'legend') {
       return { text: legendText() }
+    }
+    if (arg === 'demo') {
+      if (!walk.isOn) {
+        return { text: 'The posse is off. Run `/posse on` first, then `/posse demo`.' }
+      }
+      if (walk.demo.size > 0) {
+        endDemo($, walk)
+        return { text: 'The demo is over.' }
+      }
+      const now = await $.clock.now()
+      for (const [i, [type, description]] of DEMO.entries()) {
+        const id = `demo-${i}`
+        walk.demo.set(id, join(walk, id, type, description, now))
+      }
+      walk.demoTimer = $.clock.after(DEMO_MS, () => endDemo($, walk))
+      wake($, walk)
+      $.ui.invalidate('ui.render')
+      return {
+        text: `The posse walks for ${DEMO_MS / 1000} seconds: the boss, a creature for each kind of agent, and a second Explore in a spare hat. The legend under them names each one. Run \`/posse demo\` again to end it sooner.`,
+      }
     }
     if (arg !== '' && arg !== 'on' && arg !== 'off') {
       return { text: `\`${e.args.trim()}\` isn't a /posse option. Use ${OPTIONS}` }
@@ -303,6 +363,9 @@ export const register: Register = on => {
       }
       relist($, walk)
     } else {
+      walk.demoTimer?.cancel()
+      walk.demoTimer = null
+      walk.demo.clear()
       stop(walk)
     }
     $.ui.invalidate('ui.render')
@@ -328,7 +391,7 @@ export const register: Register = on => {
     // leaves once the listing no longer shows it active.
     if (e.agentId === undefined) {
       walk.isMainTurn = false
-      if (walk.subagents.size === 0) {
+      if (!hasCompany(walk)) {
         stop(walk)
       }
       $.ui.invalidate('ui.render')
@@ -353,7 +416,7 @@ export const register: Register = on => {
     const columns = Math.min(e.props.bodyColumns + reach, 512)
     // The boss leads the posse: it walks during the turn and for as long
     // as any subagent is still out.
-    const hasBoss = e.props.isWorking || walk.subagents.size > 0
+    const hasBoss = e.props.isWorking || hasCompany(walk)
 
     if ((e.surface !== 'terminal' && e.surface !== 'desktop') || !walk.isOn) {
       walk.band = null
@@ -392,7 +455,7 @@ export const register: Register = on => {
     }
 
     // The subagents' marks and tasks, in the order they joined.
-    const entries = [...walk.subagents.values()].map(({ look, description }) => ({
+    const entries = [...walk.subagents.values(), ...walk.demo.values()].map(({ look, description }) => ({
       text: description,
       mark: look.hatColor ?? look.color,
       color: look.color,
@@ -413,7 +476,7 @@ export const register: Register = on => {
       const svg = (
         <Svg
           source={posseSvg(columns, strides)}
-          alt={describe(hasBoss, [...walk.subagents.values()].map(c => c.type))}
+          alt={describe(hasBoss, [...walk.subagents.values(), ...walk.demo.values()].map(c => c.type))}
           isInteractive
         />
       )

@@ -5,6 +5,7 @@ All notable changes to prompt-posse are listed here. The format is based on [Kee
 ## [Unreleased]
 
 ### Added
+- `/posse demo` brings the whole posse out for 20 seconds, without starting any agents: the boss, a creature for each kind of agent, and a second Explore in a spare hat, with the legend naming each one. Run it again to end it sooner.
 - A legend row under the ground lists each walking subagent's task, with a mark in its creature's hat color and the task in its body color. When the row is too narrow, the longest tasks are cut short first, so that more fit. What doesn't fit even then is counted as `+N more`.
 - No two creatures on the strip wear the same hat color: when one's color is taken, it wears a spare color instead, so several agents of one type can be told apart.
 

@@ -44,6 +44,7 @@ From left to right: the boss, the biggest of them, then the creatures for Explor
 - `/posse` switches the posse on or off. The setting is remembered across sessions.
 - `/posse on` and `/posse off` pick one.
 - `/posse legend` shows which creature is which.
+- `/posse demo` brings the whole posse out for 20 seconds, even while Claude isn't working: the boss, a creature for each kind of agent, and a second Explore in a spare hat, with the legend naming each one. It starts no agents and uses no tokens. Run it again to end it sooner.
 
 The command runs right away, even while Claude is working and the posse is walking.
 
@@ -92,7 +93,7 @@ Interactive terminal sessions watch the folder, so edits reload in sessions that
 
 ### Check that it works
 
-Start a new session and send any prompt. The boss walks above the prompt box while Claude works, and leaves when the turn ends. `/posse legend` lists who's who. If nothing shows, check that the strip has room: it needs at least 4 free rows above the prompt and 8 columns.
+Start a new session and run `/posse demo`. The whole posse walks above the prompt box for 20 seconds. Or send any prompt: the boss walks while Claude works, and leaves when the turn ends. `/posse legend` lists who's who. If nothing shows, check that the strip has room: it needs at least 4 free rows above the prompt and 8 columns.
 
 ### Update
 
