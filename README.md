@@ -53,7 +53,7 @@ The command runs right away, even while Claude is working and the posse is walki
 - Claude Code 2.1.289 or newer. The function-hook API this mod uses is in early access and may change between releases.
 - The terminal or the Claude desktop app. VS Code and mobile don't draw the creatures.
 
-In the terminal, the creatures are drawn in text characters and repainted 20 times a second. In the desktop app, they're one SVG that animates itself, so nothing is sent per frame. It's redrawn when a creature arrives or leaves, when a turn starts or ends, and when the window is resized. A resize changes how far each creature has to walk, so the creatures jump to new spots.
+In the terminal, the creatures are drawn in text characters and repainted 20 times a second. In the desktop app, they're one SVG that animates itself, so nothing is sent per frame. It's redrawn when a creature arrives or leaves, when a creature's pace changes by a tenth or more, when a turn starts or ends, and when the window is resized. A resize changes how far each creature has to walk, so the creatures jump to new spots.
 
 ## Install
 
@@ -114,6 +114,7 @@ To remove it, take its path out of `CLAUDE_CODE_PLUGIN_DIRS` (or stop passing `-
 ## Customizing
 
 - **Speed:** change `TICK_MS` in `hooks/walker.ts`. Lower is faster.
+- **Pace:** `hooks/pace.ts` sets how an agent's work moves its creature's pace: `WINDOW_MS` is how far back its output tokens count, `FULL_RATE` the tokens a second for the fastest pace, and `MIN_PACE` and `MAX_PACE` the slowest and fastest pace as a share of the creature's own speed.
 - **Looks:** edit `hooks/looks.ts`. Headwear is two text rows of 12 characters, with `#` for a filled pixel. Colors are `0xRRGGBB` values.
 - **Body and legs:** the sprite is in `hooks/sprite.ts`, drawn the same way, with `%` for a pixel of the shaded side and `o` for an eye. The shade is a darker version of the body color unless the look sets `shadeColor`, and the eyes are near black unless it sets `eyeColor`.
 - **Desktop drawing:** `hooks/svg.ts` turns the same sprites into the animated SVG.
