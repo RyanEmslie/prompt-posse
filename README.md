@@ -62,6 +62,8 @@ Clone the repo:
 git clone https://github.com/RyanEmslie/prompt-posse.git
 ```
 
+The steps below write the folder this makes as `/path/to/prompt-posse`. Use its absolute path instead, such as `/Users/you/code/prompt-posse`.
+
 To try it in one session, point Claude Code at the folder:
 
 ```sh
@@ -78,9 +80,35 @@ To load it in every session, add the folder's absolute path to the `env` block o
 }
 ```
 
+If `CLAUDE_CODE_PLUGIN_DIRS` already names other plugin folders, keep them and add this one to the list, separated by `:` (`;` on Windows):
+
+```json
+"CLAUDE_CODE_PLUGIN_DIRS": "/path/to/another-plugin:/path/to/prompt-posse"
+```
+
 Sessions the desktop app starts read the same setting.
 
 Interactive terminal sessions watch the folder, so edits reload in sessions that are already open. Desktop sessions only do that when `CLAUDE_CODE_PLUGIN_DIR_WATCH` is also set to `1`. Otherwise edits show up in new sessions.
+
+### Check that it works
+
+Start a new session and send any prompt. The boss walks above the prompt box while Claude works, and leaves when the turn ends. `/posse legend` lists who's who. If nothing shows, check that the strip has room: it needs at least 4 free rows above the prompt and 8 columns.
+
+### Update
+
+Pull the latest version into the folder:
+
+```sh
+git -C /path/to/prompt-posse pull
+```
+
+Terminal sessions that watch the folder pick it up on their own. Other sessions show it once restarted.
+
+### Remove
+
+To hide the posse but keep it installed, run `/posse off`. It stays off in new sessions until you run `/posse on`.
+
+To remove it, take its path out of `CLAUDE_CODE_PLUGIN_DIRS` (or stop passing `--plugin-dir`), start a new session, and delete the folder.
 
 ## Customizing
 
