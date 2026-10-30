@@ -88,6 +88,12 @@ describe('desktop svg', () => {
     expect(attributesOf(svg, 'rect')).toMatchObject({ x: '0', width: String(COLUMNS * 2) })
   })
 
+  test('stretches to fill its frame, so the walk reaches both edges', () => {
+    const svg = posseSvg(COLUMNS, [])
+    expect(svg).toContain(' width="100%" height="100%" ')
+    expect(svg).toContain(' preserveAspectRatio="none" ')
+  })
+
   test('a strip too narrow to walk in stands still', () => {
     expect(animations(posseSvg(6, [stride(0, 1)]))).toBe(0)
   })

@@ -3,6 +3,7 @@ import type { AgentStatus } from 'claude-code'
 
 import { BOSS, lookFor } from '../hooks/looks'
 import { LIST_EVERY } from '../hooks/register'
+import { HEIGHT_PX } from '../hooks/svg'
 import { TICK_MS } from '../hooks/walker'
 import { TURN_END, agent, animations, band, engine, hex } from './kit'
 
@@ -16,12 +17,23 @@ describe('desktop band', () => {
     const svg = await ui.find({ type: 'Svg' })
     expect(svg?.props).toMatchObject({
       alt: 'The boss walking above the prompt',
+      height: HEIGHT_PX,
       isInteractive: true,
     })
     const source = String(svg?.props.source)
     expect(source.startsWith('<svg')).toBe(true)
     expect(animations(source)).toBe(1)
     expect(source).toContain(hex(BOSS.color))
+  })
+
+  test('draws the SVG in a column, legend or not, so its frame spans the band', async ($, on) => {
+    mock.clock(on)
+    engine(on)
+    const ui = await $.ui.mount(band(true, 'desktop'))
+
+    const column = await ui.find({ type: 'Box' })
+    expect(column?.props).toMatchObject({ flexDirection: 'column' })
+    expect(await ui.find({ type: 'Text' })).toBeUndefined()
   })
 
   test('is never repainted tick by tick', async ($, on) => {

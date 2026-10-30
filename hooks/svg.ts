@@ -3,6 +3,9 @@
 // quadrant's shape), walking on SMIL animations the desktop plays on its
 // own, so nothing is sent per frame. Their phase comes from how long each
 // creature has been walking, so a redraw picks up where the last one was.
+// The desktop gives the SVG a frame `HEIGHT_PX` tall across the band's
+// width, and the drawing stretches to fill it, as a terminal's cells stretch
+// the quadrant glyphs.
 
 import { SPRITE_ROWS, pixelColor, spriteWidth, spritePixels } from './sprite'
 import type { Look, Pose } from './sprite'
@@ -22,6 +25,10 @@ export type Stride = {
 const PIXEL_HEIGHT = 2
 const GROUND_Y = SPRITE_ROWS * 2 * PIXEL_HEIGHT
 const HEIGHT = GROUND_Y + 0.5
+// How tall the desktop draws the strip, in CSS pixels: about three of its
+// text rows, as in the terminal. Left out, the frame the desktop draws the
+// SVG in is 150 pixels tall, most of it empty.
+export const HEIGHT_PX = 55
 const STANDING: Pose = { facing: 0, step: 0, isBlinking: false }
 const FACINGS = [-1, 0, 1] as const
 const STEPS = [0, 1, 2] as const
@@ -181,12 +188,15 @@ export function strideAt(
   return { x: 0, heading: 1, isPausing: true }
 }
 
-/** The posse walking on a ground line, `columns` wide at two pixels a column. */
+/**
+ * The posse walking on a ground line, `columns` wide at two pixels a column,
+ * stretched to fill whatever frame it's drawn in.
+ */
 export function posseSvg(columns: number, strides: readonly Stride[]): string {
   const width = columns * 2
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${HEIGHT}" width="100%" preserveAspectRatio="xMinYMax meet" shape-rendering="crispEdges">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${HEIGHT}" width="100%" height="100%" preserveAspectRatio="none" shape-rendering="crispEdges">` +
     `<rect x="0" y="${GROUND_Y}" width="${width}" height="0.5" fill="#8a8a8a" opacity="0.6"/>` +
     strides.map(stride => creature(columns, stride)).join('') +
     '</svg>'

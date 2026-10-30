@@ -53,7 +53,7 @@ The command runs right away, even while Claude is working and the posse is walki
 - Claude Code 2.1.289 or newer. The function-hook API this mod uses is in early access and may change between releases.
 - The terminal or the Claude desktop app. VS Code and mobile don't draw the creatures.
 
-In the terminal, the creatures are drawn in text characters and repainted 20 times a second. In the desktop app, they're one SVG that animates itself, so nothing is sent per frame. It's redrawn when a creature arrives or leaves, when a creature's pace changes by a tenth or more, when a turn starts or ends, and when the window is resized. A resize changes how far each creature has to walk, so the creatures jump to new spots.
+In the terminal, the creatures are drawn in text characters and repainted 20 times a second. In the desktop app, they're one SVG that animates itself, so nothing is sent per frame. It's 55 pixels tall, about three rows of text, and stretches across the prompt's width. It's redrawn when a creature arrives or leaves, when a creature's pace changes by a tenth or more, when a turn starts or ends, and when the window is resized. A resize changes how far each creature has to walk, so the creatures jump to new spots.
 
 ## Install
 
@@ -117,7 +117,7 @@ To remove it, take its path out of `CLAUDE_CODE_PLUGIN_DIRS` (or stop passing `-
 - **Pace:** `hooks/pace.ts` sets how an agent's work moves its creature's pace: `WINDOW_MS` is how far back its output tokens count, `FULL_RATE` the tokens a second for the fastest pace, and `MIN_PACE` and `MAX_PACE` the slowest and fastest pace as a share of the creature's own speed.
 - **Looks:** edit `hooks/looks.ts`. Headwear is two text rows of 12 characters, with `#` for a filled pixel. Colors are `0xRRGGBB` values.
 - **Body and legs:** the sprite is in `hooks/sprite.ts`, drawn the same way, with `%` for a pixel of the shaded side and `o` for an eye. The shade is a darker version of the body color unless the look sets `shadeColor`, and the eyes are near black unless it sets `eyeColor`.
-- **Desktop drawing:** `hooks/svg.ts` turns the same sprites into the animated SVG.
+- **Desktop drawing:** `hooks/svg.ts` turns the same sprites into the animated SVG. `HEIGHT_PX` there sets how tall the desktop draws the strip, in pixels.
 
 ## Development
 
@@ -132,6 +132,7 @@ What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 - In the terminal, the `[-]` collapse button sits on the strip's top row, so near the right edge it briefly covers a creature's headwear.
 - Colors are fixed RGB values. They don't follow your terminal's color scheme or the desktop app's theme.
+- In the desktop app, the strip is 55 pixels tall whatever the app's text size, and stretches to the prompt's width. With much larger or smaller text, the creatures look a little narrower or wider than in the terminal.
 - Claude Code keeps one empty row between the strip and the prompt box, so the creatures can't stand directly on the prompt's border. The ground line under them stands in for it.
 - When more creatures are out than fit side by side, they walk through each other instead of bumping. At 80 columns that's the boss plus 10; at 120, the boss plus 16.
 - A teammate running in its own terminal pane keeps reporting "running" if that pane dies, so its creature is retired after 10 minutes of running. A live teammate on one very long turn loses its creature too, until it next goes idle. If nothing was walking for a while, a retired teammate that's still listed as running comes back for another 10 minutes, since the mod can't tell whether it went idle in between.

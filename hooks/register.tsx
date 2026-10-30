@@ -6,7 +6,7 @@ import type { Work } from './pace'
 import { BOSS, hash, hatFor, legendText } from './looks'
 import { BOSS_WIDTH, SPRITE_ROWS, SPRITE_WIDTH, rasterCells } from './sprite'
 import type { Look } from './sprite'
-import { posseSvg, strideAt } from './svg'
+import { HEIGHT_PX, posseSvg, strideAt } from './svg'
 import { TICK_MS, createWalker, freeSpot, lastX, pose, step } from './walker'
 import type { Walker } from './walker'
 
@@ -589,27 +589,26 @@ export const register: Register = on => {
         look,
       }))
       const { Box, Svg, Text } = $.ui.resolve(e)
-      const svg = (
-        <Svg
-          source={posseSvg(columns, strides)}
-          alt={describe(hasBoss, [...walk.subagents.values(), ...walk.demo.values()].map(c => c.type))}
-          isInteractive
-        />
-      )
-      if (!hasLegend) {
-        return svg
-      }
 
+      // The column stretches the SVG's frame across the band; on its own, the
+      // frame would be 300 pixels wide.
       return (
         <Box flexDirection="column">
-          {svg}
-          <Text wrap="truncate">
-            {segments.map(({ text, color, isDim }) => (
-              <Text color={color === undefined ? undefined : hex(color)} dimColor={isDim}>
-                {text}
-              </Text>
-            ))}
-          </Text>
+          <Svg
+            source={posseSvg(columns, strides)}
+            alt={describe(hasBoss, [...walk.subagents.values(), ...walk.demo.values()].map(c => c.type))}
+            height={HEIGHT_PX}
+            isInteractive
+          />
+          {hasLegend && (
+            <Text wrap="truncate">
+              {segments.map(({ text, color, isDim }) => (
+                <Text color={color === undefined ? undefined : hex(color)} dimColor={isDim}>
+                  {text}
+                </Text>
+              ))}
+            </Text>
+          )}
         </Box>
       )
     }
